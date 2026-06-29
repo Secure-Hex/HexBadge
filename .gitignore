@@ -30,6 +30,7 @@ apps/earner/public/uploads/*
 !apps/earner/public/uploads/.htaccess
 
 # Logs and temporary files
+_seed.php
 *.log
 *.tmp
 *.temp
