@@ -1,0 +1,7 @@
+# Servir imágenes públicamente, pero NUNCA ejecutar código en uploads.
+Options -ExecCGI -Indexes
+
+# Bloquear cualquier archivo ejecutable subido (defensa en profundidad).
+<FilesMatch "\.(php|phtml|php[0-9]|phps|phar|cgi|pl|py|sh|asp|aspx)$">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,67 @@
+# Entorno de desarrollo local de HexBadge.
+#   docker compose up -d --build
+# Panel admin:   http://localhost:8088   (instalador en primer arranque)
+# Portal earner: http://localhost:8089
+
+services:
+  admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: hexbadge-php
+    container_name: hexbadge_admin
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html/apps/admin/public
+    ports:
+      - "8088:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  earner:
+    image: hexbadge-php
+    container_name: hexbadge_earner
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html/apps/earner/public
+    ports:
+      - "8089:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - admin
+      - db
+    restart: unless-stopped
+
+  # Catcher SMTP para desarrollo: recibe todos los correos sin enviarlos.
+  # SMTP en mailpit:1025 (sin auth, sin cifrado). UI web: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: hexbadge_mailpit
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: hexbadge_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_dev_only
+      MYSQL_DATABASE: hexbadge
+      MYSQL_USER: hexbadge_user
+      MYSQL_PASSWORD: hexbadge_dev_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_dev_only"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  db_data:
