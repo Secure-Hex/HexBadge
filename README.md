@@ -21,7 +21,7 @@
 
 ### Credenciales y verificación
 - **Open Badges 2.0**: cada acreditación expone su _assertion_ JSON-LD (`/verify/{uuid}.json`) y su _BadgeClass_, compatibles con el estándar.
-- **Página de verificación pública** por UUID: muestra emisor, receptor, estado (válido / revocado / expirado), criterios y skills.
+- **Página de verificación pública** por UUID: perfil del receptor (foto, portada, bio y redes) arriba, y el badge con su descripción, criterios, competencias, ID de verificación y diploma. Los botones de LinkedIn solo aparecen para el dueño autenticado.
 - **Integración con LinkedIn**: botón "Agregar al perfil" (certificaciones) y compartir, con el _Organization ID_ por empresa para mostrar el logo oficial.
 - **QR en PHP puro**: generación de códigos QR sin librerías ni `exec` (funciona en hosting compartido).
 
@@ -51,7 +51,8 @@
 - **Roles jerárquicos**: `superadmin` › `admin` › `issuer` (ver tabla más abajo).
 - **Alta por invitación** (sin registro abierto): el correo refleja la empresa y el rol.
 - **2FA / TOTP opcional** (RFC 6238, compatible con Google Authenticator/Authy) para administradores y receptores.
-- **Cuentas de receptor**: las personas se registran/loguean y reclaman sus badges de forma exclusiva.
+- **Recuperación de contraseña** por email (admin y receptores): enlace de un solo uso con expiración, anti-enumeración y rate limiting; además, aviso de seguridad cuando la contraseña cambia.
+- **Cuentas de receptor**: las personas se registran/loguean y reclaman sus badges de forma exclusiva, con un **perfil personalizable** (foto de perfil, portada, bio y enlaces a redes).
 - Cifrado AES-256-GCM para secretos (contraseñas SMTP), CSRF, rate limiting por IP, cookies `Secure`/`HttpOnly`, CSP y headers de seguridad.
 
 ### Gestión y operación
@@ -71,6 +72,7 @@
 | **Badges emitidos** ![](docs/screenshots/05-badges.png) | **Receptores** ![](docs/screenshots/06-earners.png) |
 | **Analytics** ![](docs/screenshots/07-analytics.png) | **Empresas** ![](docs/screenshots/08-companies.png) |
 | **Usuarios e invitaciones** ![](docs/screenshots/10-users.png) | **Portal público (landing)** ![](docs/screenshots/12-landing.png) |
+| **Perfil del receptor** ![](docs/screenshots/13-profile.png) | **Recuperación de contraseña** ![](docs/screenshots/14-password-reset.png) |
 
 ---
 

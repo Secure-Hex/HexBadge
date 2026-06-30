@@ -86,8 +86,7 @@ hexbadge/
 │   ├── schema.sql             # DDL completo
 │   └── migrations/            # Migraciones numeradas: 001_initial.sql, etc.
 ├── scripts/
-│   ├── install.php            # Script de instalación inicial
-│   └── bulk_process.php       # Worker para CSV grandes (CLI)
+│   └── install.php            # Script de instalación inicial
 ├── storage/
 │   ├── logs/                  # Logs de aplicación (fuera del document root)
 │   └── temp/                  # Archivos temporales de CSV (se eliminan tras procesamiento)
@@ -647,7 +646,7 @@ badge_template_id,first_name,last_name,email,locale
 1. Validar archivo (CSV, max 5MB, max 5.000 filas)
 2. Crear `bulk_import_job` con `status='queued'`
 3. Mover CSV a `storage/temp/` (fuera del document root)
-4. Procesar síncronamente filas menores a 100; para más, mostrar "en proceso" y procesar vía `scripts/bulk_process.php` (ejecutado como CLI)
+4. Procesar el lote de forma síncrona en la propia request (hasta 2000 filas), incluido el envío de correos en un solo lote SMTP
 5. Por cada fila: validar, crear earner si no existe, emitir badge, registrar error si falla
 6. Al finalizar: actualizar job con conteos de éxito/error, generar CSV de errores descargable
 7. Eliminar el CSV temporal de `storage/temp/`

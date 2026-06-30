@@ -29,6 +29,6 @@ $j = $job;
     </table>
 <?php elseif ($j['status'] === 'done'): ?>
     <p class="muted">Sin errores. 🎉</p>
-<?php elseif ($j['status'] === 'queued'): ?>
-    <p class="muted">El lote está en cola. Ejecutá el worker: <code>php scripts/bulk_process.php</code></p>
+<?php elseif ($j['status'] === 'queued' || $j['status'] === 'processing'): ?>
+    <p class="muted">El lote se está procesando. Recargá la página en unos segundos.</p>
 <?php endif; ?>

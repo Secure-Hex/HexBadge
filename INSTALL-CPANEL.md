@@ -109,6 +109,6 @@ remitente: cPanel → **Email Deliverability** → Repair.
 
 - **No subas** un `.env` desde tu máquina: lo genera el instalador en el servidor.
 - `scripts/install.php` (instalador por consola) **no se usa** en cPanel.
-- Si necesitás procesar CSV grandes (>100 filas), programá un **cron job**:
-  `php /home/USUARIO/hexbadge/scripts/bulk_process.php`
+- La emisión masiva por CSV se procesa en línea (hasta 2000 filas por archivo);
+  no requiere cron ni worker.
 - Backups: respaldá la base de datos y la carpeta `hexbadge/` periódicamente.

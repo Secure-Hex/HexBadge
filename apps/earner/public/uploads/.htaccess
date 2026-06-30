@@ -5,3 +5,14 @@ Options -ExecCGI -Indexes
 <FilesMatch "\.(php|phtml|php[0-9]|phps|phar|cgi|pl|py|sh|asp|aspx)$">
     Require all denied
 </FilesMatch>
+
+# SVG: un archivo subido puede contener <script>/handlers que la sanitización
+# por regex no garantiza eliminar. Servirlo con CSP sin scripts y sin sniffing
+# impide la ejecución de JS si se abre como documento (XSS almacenado). La
+# visualización vía <img> no se ve afectada.
+<IfModule mod_headers.c>
+    <FilesMatch "\.svg$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
+        Header set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+</IfModule>

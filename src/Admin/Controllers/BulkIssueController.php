@@ -18,8 +18,8 @@ use HexBadge\Services\CsvImportService;
 /**
  * Emisión masiva por CSV (CLAUDE.md §6.3).
  *
- * Hasta 100 filas se procesan de forma síncrona; lotes mayores quedan en
- * estado 'queued' para el worker CLI (scripts/bulk_process.php).
+ * El lote se procesa de forma síncrona en la propia request (hasta MAX_ROWS
+ * filas), incluido el envío de correos en un solo lote SMTP.
  */
 final class BulkIssueController extends Controller
 {

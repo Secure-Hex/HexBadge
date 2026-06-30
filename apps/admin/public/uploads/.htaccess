@@ -5,3 +5,12 @@ Options -ExecCGI -Indexes
 <FilesMatch "\.(php|phtml|php[0-9]|phps|phar|cgi|pl|py|sh|asp|aspx)$">
     Require all denied
 </FilesMatch>
+
+# SVG: servir con CSP sin scripts y sin sniffing para impedir XSS almacenado
+# si el archivo se abre como documento. No afecta la visualización vía <img>.
+<IfModule mod_headers.c>
+    <FilesMatch "\.svg$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
+        Header set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+</IfModule>
