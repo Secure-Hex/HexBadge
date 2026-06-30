@@ -68,16 +68,6 @@ final class SettingsService
         }
     }
 
-    public static function isConfigured(string ...$keys): bool
-    {
-        foreach ($keys as $k) {
-            if (self::get($k) === '') {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private static function load(): void
     {
         if (self::$cache !== null) {

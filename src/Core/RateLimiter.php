@@ -49,20 +49,6 @@ final class RateLimiter
     }
 
     /**
-     * Cuenta intentos restantes en la ventana sin registrar uno nuevo.
-     */
-    public function remaining(string $identifier, string $action, int $maxAttempts, int $windowSeconds): int
-    {
-        $since = date('Y-m-d H:i:s', time() - $windowSeconds);
-        $count = (int) $this->db->fetchColumn(
-            'SELECT COUNT(*) FROM rate_limit_attempts
-             WHERE identifier = ? AND action = ? AND attempted_at > ?',
-            [$identifier, $action, $since]
-        );
-        return max(0, $maxAttempts - $count);
-    }
-
-    /**
      * Limpia los intentos de un identificador/acción (ej: tras login OK).
      */
     public function clear(string $identifier, string $action): void
@@ -71,14 +57,5 @@ final class RateLimiter
             'DELETE FROM rate_limit_attempts WHERE identifier = ? AND action = ?',
             [$identifier, $action]
         );
-    }
-
-    /**
-     * Purga intentos antiguos (mantenimiento; llamar desde cron/CLI).
-     */
-    public function purgeOlderThan(int $seconds = 86400): void
-    {
-        $before = date('Y-m-d H:i:s', time() - $seconds);
-        $this->db->query('DELETE FROM rate_limit_attempts WHERE attempted_at < ?', [$before]);
     }
 }

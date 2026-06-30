@@ -7,6 +7,7 @@
  */
 $error    = $error ?? null;
 $oldEmail = $oldEmail ?? '';
+$reset    = $reset ?? false;
 ?>
 <div class="auth-card">
     <div class="brand-row">
@@ -16,6 +17,9 @@ $oldEmail = $oldEmail ?? '';
     <h1>Iniciar sesión</h1>
     <p class="auth-subtitle">Panel de administración · SecureHex</p>
 
+    <?php if ($reset): ?>
+        <div class="alert alert-success">Tu contraseña fue actualizada. Ya podés ingresar.</div>
+    <?php endif; ?>
     <?php if ($error): ?>
         <div class="alert alert-error"><?= e($error) ?></div>
     <?php endif; ?>
@@ -32,4 +36,5 @@ $oldEmail = $oldEmail ?? '';
 
         <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
     </form>
+    <p class="auth-alt"><a href="/forgot-password">¿Olvidaste tu contraseña?</a></p>
 </div>

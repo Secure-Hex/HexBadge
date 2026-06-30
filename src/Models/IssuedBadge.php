@@ -40,7 +40,9 @@ final class IssuedBadge extends Model
                     c.name AS company_name,
                     bt.certificate_filename, bt.certificate_config, bt.updated_at AS template_updated_at,
                     e.uuid AS earner_uuid, e.email AS earner_email,
-                    e.first_name, e.last_name, e.display_name
+                    e.first_name, e.last_name, e.display_name,
+                    e.avatar_filename, e.cover_filename, e.profile_bio,
+                    e.profile_url, e.linkedin_url, e.instagram_url, e.x_url, e.github_url
              FROM issued_badges ib
              JOIN badge_templates bt ON bt.id = ib.badge_template_id
              JOIN earners e ON e.id = ib.earner_id

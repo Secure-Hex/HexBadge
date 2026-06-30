@@ -15,6 +15,7 @@ use HexBadge\Earner\EarnerAuth;
 use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\Earner;
 use HexBadge\Models\IssuedBadge;
+use HexBadge\Services\ImageService;
 
 /**
  * Panel privado del receptor: sus badges y edición de perfil.
@@ -60,24 +61,55 @@ final class ProfileController extends EarnerBaseController
         }
         CSRF::check($request);
 
-        $v = new Validator();
+        $v   = new Validator();
+        $img = new ImageService();
         try {
-            $firstName = $v->name((string) $request->input('first_name', ''));
-            $lastName  = $v->name((string) $request->input('last_name', ''));
-            $bio       = $v->text((string) $request->input('profile_bio', ''), 1000, false);
-            $url       = $v->url((string) $request->input('profile_url', ''), false);
+            $updates = [
+                'first_name'    => $v->name((string) $request->input('first_name', '')),
+                'last_name'     => $v->name((string) $request->input('last_name', '')),
+                'profile_bio'   => $v->text((string) $request->input('profile_bio', ''), 1000, false),
+                'profile_url'   => $v->url((string) $request->input('profile_url', ''), false),
+                'linkedin_url'  => $v->url((string) $request->input('linkedin_url', ''), false),
+                'instagram_url' => $v->url((string) $request->input('instagram_url', ''), false),
+                'x_url'         => $v->url((string) $request->input('x_url', ''), false),
+                'github_url'    => $v->url((string) $request->input('github_url', ''), false),
+            ];
+            // Subida/eliminación de foto de perfil y portada.
+            $this->applyImage($request, $img, $earner, $updates, 'avatar', 'avatar_filename');
+            $this->applyImage($request, $img, $earner, $updates, 'cover', 'cover_filename');
         } catch (\InvalidArgumentException $e) {
             return $this->view('profile', ['pageTitle' => 'Mi perfil', 'earner' => array_merge($earner, $request->all()), 'errors' => [$e->getMessage()]], 422);
         }
 
-        Earner::updateById((int) $earner['id'], [
-            'first_name'  => $firstName,
-            'last_name'   => $lastName,
-            'profile_bio' => $bio,
-            'profile_url' => $url,
-        ]);
+        Earner::updateById((int) $earner['id'], $updates);
         Session::flash('success', 'Perfil actualizado.');
         return Response::redirect('/earner/' . (string) $earner['uuid']);
+    }
+
+    /**
+     * Aplica al array de updates la subida de una imagen (campo file $field) o
+     * su eliminación (checkbox remove_{$field}), reemplazando la anterior.
+     * ponytail: si una segunda imagen falla la validación, la primera ya
+     * guardada queda huérfana en disco — inofensiva (no referenciada).
+     *
+     * @param array<string,mixed> $earner
+     * @param array<string,mixed> $updates
+     */
+    private function applyImage(Request $request, ImageService $img, array $earner, array &$updates, string $field, string $column): void
+    {
+        $file = $request->file($field);
+        $old  = (string) ($earner[$column] ?? '');
+        if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $updates[$column] = $img->processProfileImage($file);
+            if ($old !== '') {
+                $img->deleteProfile($old);
+            }
+        } elseif ($request->input('remove_' . $field) === '1') {
+            if ($old !== '') {
+                $img->deleteProfile($old);
+            }
+            $updates[$column] = null;
+        }
     }
 
     /**

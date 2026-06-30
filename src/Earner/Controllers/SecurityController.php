@@ -55,6 +55,7 @@ final class SecurityController extends EarnerBaseController
             }
             Earner::updateById((int) $earner['id'], ['password_hash' => password_hash($new, PASSWORD_BCRYPT, ['cost' => 12])]);
             Logger::audit('earner.password.changed', null, 'earner', (string) $earner['uuid']);
+            \HexBadge\Services\PasswordResetService::notifyChanged('earner', $earner, $request->ip());
             Session::flash('success', 'Contraseña actualizada.');
             return Response::redirect('/me/security');
         } catch (InvalidArgumentException $e) {

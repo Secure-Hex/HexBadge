@@ -132,17 +132,6 @@ final class Auth
     }
 
     /**
-     * Exige sesión activa; si no, redirige a /login.
-     */
-    public static function requireAuth(): ?Response
-    {
-        if (!self::check()) {
-            return Response::redirect('/login');
-        }
-        return null;
-    }
-
-    /**
      * Exige un rol mínimo; devuelve una Response de error si no cumple,
      * o null si está autorizado.
      */

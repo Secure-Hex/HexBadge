@@ -148,7 +148,6 @@ final class Installer
             '',
             '# Upload',
             'UPLOAD_MAX_SIZE_MB=2',
-            'UPLOAD_PATH=apps/earner/public/uploads/badges/',
             '',
             '# Rate limiting',
             'RATE_LIMIT_LOGIN=5',

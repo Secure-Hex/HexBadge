@@ -57,14 +57,6 @@ abstract class Model
         return static::db()->update(static::table(), $data, 'id = ?', [$id]);
     }
 
-    /**
-     * @return array<int,array<string,mixed>>
-     */
-    public static function all(string $orderBy = 'id DESC'): array
-    {
-        return static::db()->fetchAll('SELECT * FROM ' . static::table() . ' ORDER BY ' . $orderBy);
-    }
-
     private static function table(): string
     {
         if (static::$table === '') {

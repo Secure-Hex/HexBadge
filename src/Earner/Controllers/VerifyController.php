@@ -8,6 +8,7 @@ use HexBadge\Core\RateLimiter;
 use HexBadge\Core\Request;
 use HexBadge\Core\Response;
 use HexBadge\Core\View;
+use HexBadge\Earner\EarnerAuth;
 use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\IssuedBadge;
 use HexBadge\Services\CertificateService;
@@ -67,9 +68,14 @@ final class VerifyController
             $linkedinParams['expirationMonth'] = date('n', $expTs);
         }
 
+        // El botón "Agregar a LinkedIn" / compartir solo se ofrece al DUEÑO
+        // autenticado del badge; un tercero solo ve el badge y su información.
+        $isOwner = EarnerAuth::check() && EarnerAuth::id() === (int) $badge['earner_id'];
+
         $html = View::renderPartial('verify/show', [
             'appName'         => config('app.name'),
             'badge'           => $badge,
+            'isOwner'         => $isOwner,
             'tags'            => BadgeTemplate::decodeTags($badge['skills_tags'] ?? null),
             'expired'         => $expired,
             'verifyUrl'       => $verifyUrl,

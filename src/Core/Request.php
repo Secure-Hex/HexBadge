@@ -90,11 +90,6 @@ final class Request
         return $this->post;
     }
 
-    public function has(string $key): bool
-    {
-        return array_key_exists($key, $this->post);
-    }
-
     /**
      * Archivo subido por nombre de campo.
      *
@@ -168,10 +163,5 @@ final class Request
     {
         $ua = $this->server['HTTP_USER_AGENT'] ?? null;
         return is_string($ua) ? substr($ua, 0, 500) : null;
-    }
-
-    public function isPost(): bool
-    {
-        return $this->method() === 'POST';
     }
 }

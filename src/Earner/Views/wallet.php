@@ -34,11 +34,44 @@ $pending = $pending ?? [];
     </div>
 <?php endif; ?>
 
-<h1><?= e((string) $earner['display_name']) ?></h1>
-<?php if (!empty($earner['profile_bio'])): ?>
-    <p class="muted"><?= nl2br(e((string) $earner['profile_bio'])) ?></p>
-<?php endif; ?>
-<p class="muted"><?= count($badges) ?> badge<?= count($badges) === 1 ? '' : 's' ?></p>
+<?php
+// Solo las redes que el receptor cargó (definiciones centralizadas).
+$networks = [];
+foreach (social_networks() as $net) {
+    $url = (string) ($earner[$net['key']] ?? '');
+    if ($url !== '') {
+        $networks[] = $net + ['url' => $url];
+    }
+}
+$initial = strtoupper(mb_substr((string) $earner['display_name'], 0, 1));
+?>
+<header class="profile-header">
+    <div class="profile-cover"<?php if (!empty($earner['cover_filename'])): ?> style="background-image:url('<?= e(profile_image_url((string) $earner['cover_filename'])) ?>')"<?php endif; ?>></div>
+    <div class="profile-id">
+        <div class="profile-avatar">
+            <?php if (!empty($earner['avatar_filename'])): ?>
+                <img src="<?= e(profile_image_url((string) $earner['avatar_filename'])) ?>" alt="<?= e((string) $earner['display_name']) ?>">
+            <?php else: ?>
+                <span><?= e($initial) ?></span>
+            <?php endif; ?>
+        </div>
+        <h1><?= e((string) $earner['display_name']) ?></h1>
+        <?php if (!empty($earner['profile_bio'])): ?>
+            <p class="profile-bio"><?= nl2br(e((string) $earner['profile_bio'])) ?></p>
+        <?php endif; ?>
+        <?php if ($networks !== []): ?>
+            <div class="social-links">
+                <?php foreach ($networks as $n): ?>
+                    <a class="social-link" style="--brand:<?= e($n['brand']) ?>" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $n['icon'] ?>"/></svg>
+                        <span><?= e($n['label']) ?></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+        <p class="muted profile-count"><?= count($badges) ?> badge<?= count($badges) === 1 ? '' : 's' ?></p>
+    </div>
+</header>
 
 <?php if (empty($badges)): ?>
     <p class="muted">Todavía no hay badges aceptados en este perfil.</p>

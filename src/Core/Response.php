@@ -55,12 +55,6 @@ final class Response
         return new self($body, $status, ['Content-Type' => 'text/plain; charset=UTF-8']);
     }
 
-    public function withHeader(string $name, string $value): self
-    {
-        $this->headers[$name] = $value;
-        return $this;
-    }
-
     public function status(): int
     {
         return $this->status;

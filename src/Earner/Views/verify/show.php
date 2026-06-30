@@ -4,6 +4,7 @@
  *
  * @var string              $appName
  * @var array<string,mixed> $badge
+ * @var bool                $isOwner
  * @var array<int,string>   $tags
  * @var bool                $expired
  * @var string              $verifyUrl
@@ -11,17 +12,32 @@
  * @var string              $imageUrl
  * @var string              $addToProfileUrl
  * @var string              $shareUrl
+ * @var string|null         $certificateUrl
  */
 $b = $badge;
-$status = (string) $b['status'];
-$earnerName = (string) $b['first_name'] . ' ' . (string) $b['last_name'];
+$status     = (string) $b['status'];
+$earnerName = (string) ($b['display_name'] ?? trim((string) $b['first_name'] . ' ' . (string) $b['last_name']));
+$initial    = strtoupper(mb_substr($earnerName !== '' ? $earnerName : '?', 0, 1));
 
-[$stateLabel, $stateClass, $stateIcon] = match (true) {
-    $status === 'revoked' => ['Revocado', 'status-revoked', '✗'],
-    $expired              => ['Expirado', 'status-pending', '⚠'],
-    default               => ['Válido', 'status-accepted', '✓'],
+[$stateLabel, $stateClass] = match (true) {
+    $status === 'revoked' => ['Revocado', 'status-revoked'],
+    $expired              => ['Expirado', 'status-pending'],
+    default               => ['Válido', 'status-accepted'],
 };
 $ogDescription = $earnerName . ' obtuvo el badge "' . (string) $b['template_name'] . '" emitido por ' . (string) $b['issuer_name'] . '.';
+
+// Redes del receptor (solo las cargadas) + logo de LinkedIn para los botones.
+$networks = [];
+$liIcon   = '';
+foreach (social_networks() as $net) {
+    if ($net['key'] === 'linkedin_url') {
+        $liIcon = $net['icon'];
+    }
+    $url = (string) ($b[$net['key']] ?? '');
+    if ($url !== '') {
+        $networks[] = $net + ['url' => $url];
+    }
+}
 ?><!DOCTYPE html>
 <html lang="es">
 <head>
@@ -43,51 +59,107 @@ $ogDescription = $earnerName . ' obtuvo el badge "' . (string) $b['template_name
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body class="verify-page">
-<div class="verify-card">
-    <img class="badge-img" src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="<?= e((string) $b['template_name']) ?>">
-    <h1 style="margin:1rem 0 .15rem"><?= e((string) $b['template_name']) ?></h1>
-    <p style="font-size:1.05rem;margin-top:0;color:var(--text-2)">Otorgado a <strong><?= e($earnerName) ?></strong></p>
+<div class="verify-shell">
 
-    <p><span class="badge-status <?= $stateClass ?>" style="font-size:.9rem;padding:.3rem .85rem"><?= $stateLabel ?></span></p>
+    <!-- Perfil del receptor -->
+    <header class="profile-header">
+        <div class="profile-cover"<?php if (!empty($b['cover_filename'])): ?> style="background-image:url('<?= e(profile_image_url((string) $b['cover_filename'])) ?>')"<?php endif; ?>></div>
+        <div class="profile-id">
+            <div class="profile-avatar">
+                <?php if (!empty($b['avatar_filename'])): ?>
+                    <img src="<?= e(profile_image_url((string) $b['avatar_filename'])) ?>" alt="<?= e($earnerName) ?>">
+                <?php else: ?>
+                    <span><?= e($initial) ?></span>
+                <?php endif; ?>
+            </div>
+            <h1><?= e($earnerName) ?></h1>
+            <?php if (!empty($b['profile_bio'])): ?>
+                <p class="profile-bio"><?= nl2br(e((string) $b['profile_bio'])) ?></p>
+            <?php endif; ?>
+            <?php if ($networks !== []): ?>
+                <div class="social-links">
+                    <?php foreach ($networks as $n): ?>
+                        <a class="social-link" style="--brand:<?= e($n['brand']) ?>" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $n['icon'] ?>"/></svg>
+                            <span><?= e($n['label']) ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+            <p class="profile-count"><a href="/earner/<?= e((string) $b['earner_uuid']) ?>">Ver todos sus badges →</a></p>
+        </div>
+    </header>
 
-    <?php if ($status === 'revoked'): ?>
-        <div class="alert alert-error">Este badge fue revocado<?= !empty($b['revoke_reason']) ? ': ' . e((string) $b['revoke_reason']) : '.' ?></div>
-    <?php elseif ($expired): ?>
-        <div class="alert alert-error">Este badge expiró el <?= e((string) $b['expires_at']) ?>.</div>
-    <?php endif; ?>
+    <!-- Badge verificado -->
+    <article class="badge-verify card">
+        <div class="badge-verify-media">
+            <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="<?= e((string) $b['template_name']) ?>">
+            <span class="badge-status <?= $stateClass ?>"><?= $stateLabel ?></span>
+        </div>
 
-    <?php if (!empty($b['template_description'])): ?>
-        <p class="muted" style="max-width:42ch;margin:.5rem auto 0"><?= e((string) $b['template_description']) ?></p>
-    <?php endif; ?>
+        <div class="badge-verify-body">
+            <p class="bv-eyebrow">Credencial verificada</p>
+            <h2><?= e((string) $b['template_name']) ?></h2>
+            <p class="bv-grantee">Otorgado a <strong><?= e($earnerName) ?></strong></p>
 
-    <?php if (!empty($tags)): ?>
-        <p style="margin-top:.75rem">
-            <?php foreach ($tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?>
-        </p>
-    <?php endif; ?>
+            <?php if ($status === 'revoked'): ?>
+                <div class="alert alert-error">Este badge fue revocado<?= !empty($b['revoke_reason']) ? ': ' . e((string) $b['revoke_reason']) : '.' ?></div>
+            <?php elseif ($expired): ?>
+                <div class="alert alert-error">Este badge expiró el <?= e((string) $b['expires_at']) ?>.</div>
+            <?php endif; ?>
 
-    <div class="verify-meta">
-        <table class="table">
-            <tr><th>Emisor</th><td><?= e((string) $b['issuer_name']) ?></td></tr>
-            <tr><th>Fecha de emisión</th><td><?= e((string) $b['issued_at']) ?></td></tr>
-            <?php if (!empty($b['expires_at'])): ?><tr><th>Expira</th><td><?= e((string) $b['expires_at']) ?></td></tr><?php endif; ?>
-        </table>
-    </div>
+            <?php if (!empty($b['template_description'])): ?>
+                <p class="bv-desc"><?= nl2br(e((string) $b['template_description'])) ?></p>
+            <?php endif; ?>
 
-    <?php if ($status !== 'revoked'): ?>
-    <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
-        <a class="btn btn-primary" href="<?= e($addToProfileUrl) ?>" target="_blank" rel="noopener">Agregar a LinkedIn</a>
-        <?php if (!empty($certificateUrl)): ?>
-            <a class="btn" href="<?= e($certificateUrl) ?>" target="_blank" rel="noopener">Descargar diploma (PDF)</a>
-        <?php endif; ?>
-        <a class="btn" href="<?= e($shareUrl) ?>" target="_blank" rel="noopener">Compartir</a>
-        <a class="btn" href="<?= e($jsonUrl) ?>" target="_blank" rel="noopener">Ver JSON</a>
-    </div>
-    <?php else: ?>
-    <div><a class="btn" href="<?= e($jsonUrl) ?>" target="_blank" rel="noopener">Ver assertion JSON</a></div>
-    <?php endif; ?>
+            <?php if (!empty($b['criteria_text']) || !empty($b['criteria_url'])): ?>
+                <div class="bv-block">
+                    <h3>Criterios de obtención</h3>
+                    <?php if (!empty($b['criteria_text'])): ?>
+                        <p><?= nl2br(e((string) $b['criteria_text'])) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($b['criteria_url'])): ?>
+                        <p><a href="<?= e((string) $b['criteria_url']) ?>" target="_blank" rel="noopener">Ver criterios completos →</a></p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
-    <p class="muted" style="font-size:.78rem;margin-top:1.5rem">Verificado con <strong>HexBadge</strong>, una herramienta de
+            <?php if (!empty($tags)): ?>
+                <div class="bv-block">
+                    <h3>Competencias</h3>
+                    <div class="bv-tags"><?php foreach ($tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?></div>
+                </div>
+            <?php endif; ?>
+
+            <dl class="meta-list">
+                <dt>Emisor</dt><dd><?= e((string) $b['issuer_name']) ?></dd>
+                <dt>Fecha de emisión</dt><dd><?= e((string) $b['issued_at']) ?></dd>
+                <?php if (!empty($b['expires_at'])): ?><dt>Expira</dt><dd><?= e((string) $b['expires_at']) ?></dd><?php endif; ?>
+                <dt>ID de verificación</dt><dd><code class="bv-id"><?= e((string) $b['uuid']) ?></code></dd>
+            </dl>
+
+            <div class="bv-actions">
+                <?php if ($isOwner && $status !== 'revoked'): ?>
+                    <div class="bv-row">
+                        <a class="btn btn-linkedin" href="<?= e($addToProfileUrl) ?>" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $liIcon ?>"/></svg>Agregar a LinkedIn
+                        </a>
+                        <a class="btn btn-linkedin-outline" href="<?= e($shareUrl) ?>" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $liIcon ?>"/></svg>Compartir en LinkedIn
+                        </a>
+                    </div>
+                <?php endif; ?>
+                <div class="bv-row">
+                    <?php if (!empty($certificateUrl)): ?>
+                        <a class="btn" href="<?= e($certificateUrl) ?>" target="_blank" rel="noopener">Ver diploma (PDF)</a>
+                    <?php endif; ?>
+                    <a class="btn btn-ghost" href="<?= e($jsonUrl) ?>" target="_blank" rel="noopener">Ver datos Open Badge</a>
+                </div>
+            </div>
+        </div>
+    </article>
+
+    <p class="verify-foot">Verificado con <strong>HexBadge</strong>, una herramienta de
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
 </div>
 </body>

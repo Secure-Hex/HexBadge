@@ -4,11 +4,16 @@
  * @var string      $oldEmail
  */
 use HexBadge\Core\CSRF;
+
+$reset = $reset ?? false;
 ?>
 <div class="auth-card">
     <h1>Ingresar</h1>
     <p class="auth-subtitle">Accedé a tus badges</p>
 
+    <?php if ($reset): ?>
+        <div class="alert alert-success">Tu contraseña fue actualizada. Ya podés ingresar.</div>
+    <?php endif; ?>
     <?php if (!empty($error)): ?>
         <div class="alert alert-error"><?= e($error) ?></div>
     <?php endif; ?>
@@ -21,4 +26,5 @@ use HexBadge\Core\CSRF;
         <input type="password" id="password" name="password" required>
         <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
     </form>
+    <p class="auth-alt"><a href="/forgot-password">¿Olvidaste tu contraseña?</a></p>
 </div>

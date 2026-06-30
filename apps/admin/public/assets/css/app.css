@@ -152,6 +152,7 @@ section>h2{padding-bottom:.4rem;border-bottom:1px solid var(--border);margin-bot
 .auth-card .brand-row b{font-size:1.15rem;letter-spacing:-.02em}
 .auth-card h1{font-size:1.4rem}
 .auth-subtitle{color:var(--muted);margin:-.25rem 0 1.5rem;font-size:.92rem}
+.auth-alt{text-align:center;margin:1rem 0 0;font-size:.9rem}
 
 /* ============================================================
    Botones

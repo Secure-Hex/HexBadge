@@ -58,6 +58,7 @@ final class AccountController extends Controller
                 'password_hash' => password_hash($new, PASSWORD_BCRYPT, ['cost' => 12]),
             ]);
             Logger::audit('user.password.changed', (int) $user['id'], 'user', (string) $user['uuid']);
+            \HexBadge\Services\PasswordResetService::notifyChanged('admin', $user, $request->ip());
             Session::flash('success', 'Contraseña actualizada.');
             return $this->redirect('/admin/account');
         } catch (InvalidArgumentException $e) {

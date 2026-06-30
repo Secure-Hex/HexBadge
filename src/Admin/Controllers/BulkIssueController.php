@@ -107,7 +107,9 @@ final class BulkIssueController extends Controller
         Logger::audit('bulk.uploaded', $userId, 'bulk_import_job', $jobUuid, ['rows' => $rows]);
 
         // Se procesa todo en línea (incluye el envío de correos en un solo lote).
-        $summary = (new CsvImportService())->process($jobId, $dest, $templateUuid, $userId);
+        // La empresa del template del form acota qué templates puede traer el CSV.
+        $allowedCompanyId = isset($template['company_id']) ? (int) $template['company_id'] : null;
+        $summary = (new CsvImportService())->process($jobId, $dest, $templateUuid, $userId, $allowedCompanyId);
         @unlink($dest);
         Session::flash('success', sprintf(
             'Procesadas %d filas: %d emitidas, %d omitidas (duplicadas), %d con error.',

@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS users (
     is_active     TINYINT(1) NOT NULL DEFAULT 1,
     totp_secret   VARCHAR(64) NULL,                    -- MFA TOTP (opcional)
     totp_enabled  TINYINT(1) NOT NULL DEFAULT 0,
+    reset_token_hash CHAR(64) NULL,                   -- recuperación de contraseña (SHA-256)
+    reset_expires DATETIME NULL,
     last_login_at DATETIME NULL,
     last_login_ip VARCHAR(45) NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -101,11 +103,19 @@ CREATE TABLE IF NOT EXISTS earners (
     last_name     VARCHAR(100) NOT NULL,
     display_name  VARCHAR(200) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED,
     profile_bio   TEXT NULL,
-    profile_url   VARCHAR(500) NULL,
+    profile_url   VARCHAR(500) NULL,                   -- Sitio web personal
+    avatar_filename VARCHAR(255) NULL,                 -- Foto de perfil
+    cover_filename  VARCHAR(255) NULL,                 -- Foto de portada
+    linkedin_url  VARCHAR(500) NULL,
+    instagram_url VARCHAR(500) NULL,
+    x_url         VARCHAR(500) NULL,
+    github_url    VARCHAR(500) NULL,
     token_hash    VARCHAR(255) NULL UNIQUE,            -- Hash del token para acceso a wallet
     password_hash VARCHAR(255) NULL,                   -- Cuenta del earner (login/registro) — bcrypt
     totp_secret   VARCHAR(64) NULL,                    -- 2FA TOTP (opcional)
     totp_enabled  TINYINT(1) NOT NULL DEFAULT 0,
+    reset_token_hash CHAR(64) NULL,                   -- recuperación de contraseña (SHA-256)
+    reset_expires DATETIME NULL,
     token_expires DATETIME NULL,
     is_verified   TINYINT(1) NOT NULL DEFAULT 0,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

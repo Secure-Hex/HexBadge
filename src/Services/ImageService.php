@@ -16,9 +16,9 @@ use RuntimeException;
  */
 final class ImageService
 {
-    private const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/svg+xml'];
     // Las imágenes viven en el docroot PÚBLICO (portal de personas), no en admin.
     private const UPLOAD_DIR   = BASE_PATH . '/apps/earner/public/uploads/badges/';
+    private const PROFILE_DIR  = BASE_PATH . '/apps/earner/public/uploads/profiles/';
     private const CERT_DIR     = BASE_PATH . '/apps/earner/public/uploads/certificates/';
 
     private int $maxBytes;
@@ -29,11 +29,59 @@ final class ImageService
     }
 
     /**
-     * Procesa un archivo subido y devuelve el nombre final almacenado.
+     * Procesa la imagen de un badge (PNG/JPG/SVG sanitizado) y devuelve el
+     * nombre final almacenado.
      *
      * @param array<string,mixed> $file Entrada de $_FILES (vía Request::file()).
      */
     public function processUpload(array $file): string
+    {
+        return $this->persist($file, self::UPLOAD_DIR, [
+            'image/png'     => 'png',
+            'image/jpeg'    => 'jpg',
+            'image/svg+xml' => 'svg',
+        ], $this->maxBytes, true);
+    }
+
+    /**
+     * Procesa una foto de perfil/portada del receptor. Solo PNG/JPG (sin SVG,
+     * que no aplica a fotos), límite mayor (5MB). Va a uploads/profiles/.
+     *
+     * @param array<string,mixed> $file
+     */
+    public function processProfileImage(array $file): string
+    {
+        return $this->persist($file, self::PROFILE_DIR, [
+            'image/png'  => 'png',
+            'image/jpeg' => 'jpg',
+        ], 5 * 1024 * 1024, false);
+    }
+
+    public function delete(string $filename): void
+    {
+        // Evitar path traversal: solo el basename.
+        $path = self::UPLOAD_DIR . basename($filename);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    public function deleteProfile(string $filename): void
+    {
+        $path = self::PROFILE_DIR . basename($filename);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * Valida (tamaño + MIME real con finfo) y guarda un archivo subido en $dir
+     * con nombre aleatorio y permisos públicos (0644). Devuelve el nombre final.
+     *
+     * @param array<string,mixed>  $file
+     * @param array<string,string> $extByMime  MIME permitido => extensión
+     */
+    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg): string
     {
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             throw new InvalidArgumentException('Error al subir la imagen');
@@ -41,49 +89,33 @@ final class ImageService
         if (!isset($file['tmp_name']) || !is_uploaded_file((string) $file['tmp_name'])) {
             throw new InvalidArgumentException('Archivo de imagen inválido');
         }
-        if ((int) ($file['size'] ?? 0) > $this->maxBytes) {
-            throw new InvalidArgumentException('Imagen demasiado grande (máx. ' . config('upload.max_size_mb', 2) . 'MB)');
+        if ((int) ($file['size'] ?? 0) > $maxBytes) {
+            throw new InvalidArgumentException('Imagen demasiado grande (máx. ' . intdiv($maxBytes, 1048576) . 'MB)');
         }
 
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime  = (string) $finfo->file((string) $file['tmp_name']);
-        if (!in_array($mime, self::ALLOWED_MIME, true)) {
-            throw new InvalidArgumentException('Tipo de archivo no permitido (PNG, JPG o SVG)');
+        $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
+        if (!isset($extByMime[$mime])) {
+            throw new InvalidArgumentException('Tipo de archivo no permitido (' . implode(', ', array_values($extByMime)) . ')');
         }
 
-        $this->ensureDir();
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new RuntimeException('No se pudo crear el directorio de uploads');
+        }
 
-        $ext      = match ($mime) {
-            'image/png'     => 'png',
-            'image/jpeg'    => 'jpg',
-            'image/svg+xml' => 'svg',
-        };
-        $filename = bin2hex(random_bytes(16)) . '.' . $ext;
-        $dest     = self::UPLOAD_DIR . $filename;
-
+        $filename = bin2hex(random_bytes(16)) . '.' . $extByMime[$mime];
+        $dest     = $dir . $filename;
         if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
             throw new RuntimeException('Error al guardar la imagen');
         }
 
-        // Para SVG: sanitizar tras mover (ya en disco bajo nuestro control).
-        if ($mime === 'image/svg+xml') {
+        // SVG: sanitizar tras mover (ya en disco bajo nuestro control).
+        if ($sanitizeSvg && $mime === 'image/svg+xml') {
             $this->sanitizeSvg($dest);
         }
 
-        // 0644: las imágenes de badges son públicas; el servidor web debe poder
-        // servirlas (en cPanel el contenido estático lo sirve otro usuario).
+        // 0644: imágenes públicas; en cPanel el contenido estático lo sirve otro user.
         @chmod($dest, 0644);
         return $filename;
-    }
-
-    public function delete(string $filename): void
-    {
-        // Evitar path traversal: solo el basename.
-        $filename = basename($filename);
-        $path     = self::UPLOAD_DIR . $filename;
-        if (is_file($path)) {
-            @unlink($path);
-        }
     }
 
     /**
@@ -128,13 +160,6 @@ final class ImageService
         $path = self::CERT_DIR . basename($filename);
         if (is_file($path)) {
             @unlink($path);
-        }
-    }
-
-    private function ensureDir(): void
-    {
-        if (!is_dir(self::UPLOAD_DIR) && !mkdir(self::UPLOAD_DIR, 0755, true) && !is_dir(self::UPLOAD_DIR)) {
-            throw new RuntimeException('No se pudo crear el directorio de uploads');
         }
     }
 

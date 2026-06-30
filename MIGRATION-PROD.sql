@@ -171,6 +171,42 @@ SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE companies ADD COLUMN smtp_from_name
   FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='companies' AND COLUMN_NAME='smtp_from_name');
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
+-- ---------- 010 — perfil del receptor (sólo columnas que falten) ----------
+
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN avatar_filename VARCHAR(255) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='avatar_filename');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN cover_filename VARCHAR(255) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='cover_filename');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN linkedin_url VARCHAR(500) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='linkedin_url');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN instagram_url VARCHAR(500) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='instagram_url');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN x_url VARCHAR(500) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='x_url');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN github_url VARCHAR(500) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='github_url');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- ---------- 011 — recuperación de contraseña (sólo columnas que falten) ----------
+
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE users ADD COLUMN reset_token_hash CHAR(64) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='reset_token_hash');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE users ADD COLUMN reset_expires DATETIME NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='reset_expires');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN reset_token_hash CHAR(64) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='reset_token_hash');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN reset_expires DATETIME NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='reset_expires');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
 -- ============================================================
 -- Listo. Verificá con:  SELECT id, name FROM companies;
 -- Luego, en el panel (como superadmin): revisá Empresas, ajustá los

@@ -40,6 +40,10 @@ $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
 $router->get('/login/2fa', [AuthController::class, 'showTwoFactor']);
 $router->post('/login/2fa', [AuthController::class, 'twoFactor']);
+$router->get('/forgot-password', [AuthController::class, 'showForgot']);
+$router->post('/forgot-password', [AuthController::class, 'sendReset']);
+$router->get('/reset-password/{token}', [AuthController::class, 'showReset']);
+$router->post('/reset-password/{token}', [AuthController::class, 'reset']);
 $router->get('/install', [InstallController::class, 'alreadyInstalled']);
 
 // --- Cuenta del usuario (contraseña + 2FA) ---

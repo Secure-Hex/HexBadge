@@ -25,16 +25,6 @@ final class Totp
     }
 
     /**
-     * Código actual para un secreto dado (para pruebas/uso interno).
-     */
-    public static function code(string $secret, ?int $forTime = null): string
-    {
-        $time    = $forTime ?? time();
-        $counter = (int) floor($time / self::PERIOD);
-        return self::hotp($secret, $counter);
-    }
-
-    /**
      * Verifica un código permitiendo una ventana de ±$window períodos
      * (tolerancia a desfases de reloj). Comparación en tiempo constante.
      */

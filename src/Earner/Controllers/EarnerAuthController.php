@@ -12,6 +12,7 @@ use HexBadge\Core\Totp;
 use HexBadge\Core\Validator;
 use HexBadge\Earner\EarnerAuth;
 use HexBadge\Models\Earner;
+use HexBadge\Services\PasswordResetService;
 
 /**
  * Login / logout de receptores en el portal earner.
@@ -23,7 +24,77 @@ final class EarnerAuthController extends EarnerBaseController
         if (EarnerAuth::check()) {
             return Response::redirect('/me');
         }
-        return $this->view('login', ['pageTitle' => 'Ingresar', 'error' => null, 'oldEmail' => '']);
+        return $this->view('login', [
+            'pageTitle' => 'Ingresar',
+            'error'     => null,
+            'oldEmail'  => '',
+            'reset'     => $request->query('reset') === '1',
+        ]);
+    }
+
+    /**
+     * GET /forgot-password — pedir enlace de recuperación.
+     */
+    public function showForgot(Request $request): Response
+    {
+        if (EarnerAuth::check()) {
+            return Response::redirect('/me');
+        }
+        return $this->view('forgot_password', ['pageTitle' => 'Recuperar contraseña', 'sent' => false, 'error' => null]);
+    }
+
+    /**
+     * POST /forgot-password — envía el enlace (respuesta genérica).
+     */
+    public function sendReset(Request $request): Response
+    {
+        CSRF::check($request);
+
+        $ip      = $request->ip();
+        $limiter = new \HexBadge\Core\RateLimiter();
+        if (!$limiter->check($ip, 'pwreset', 5, 900)) {
+            return $this->view('forgot_password', ['pageTitle' => 'Recuperar contraseña', 'sent' => false, 'error' => 'Demasiados intentos. Esperá unos minutos.'], 429);
+        }
+
+        try {
+            $email = (new Validator())->email((string) $request->input('email', ''));
+            (new PasswordResetService())->request('earner', $email);
+        } catch (\InvalidArgumentException) {
+            // Anti-enumeración: mensaje genérico igual.
+        }
+        return $this->view('forgot_password', ['pageTitle' => 'Recuperar contraseña', 'sent' => true, 'error' => null]);
+    }
+
+    /**
+     * GET /reset-password/{token} — formulario de nueva contraseña.
+     */
+    public function showReset(Request $request, string $token): Response
+    {
+        $valid = (new PasswordResetService())->findValid('earner', $token) !== null;
+        return $this->view('reset_password', ['pageTitle' => 'Nueva contraseña', 'token' => $token, 'valid' => $valid, 'errors' => []]);
+    }
+
+    /**
+     * POST /reset-password/{token} — aplica la nueva contraseña.
+     */
+    public function reset(Request $request, string $token): Response
+    {
+        CSRF::check($request);
+
+        $svc = new PasswordResetService();
+        if ($svc->findValid('earner', $token) === null) {
+            return $this->view('reset_password', ['pageTitle' => 'Nueva contraseña', 'token' => $token, 'valid' => false, 'errors' => []], 410);
+        }
+        try {
+            $pw = (new Validator())->password((string) $request->input('password', ''));
+            if (!hash_equals($pw, (string) $request->input('password_confirm', ''))) {
+                throw new \InvalidArgumentException('Las contraseñas no coinciden.');
+            }
+        } catch (\InvalidArgumentException $e) {
+            return $this->view('reset_password', ['pageTitle' => 'Nueva contraseña', 'token' => $token, 'valid' => true, 'errors' => [$e->getMessage()]], 422);
+        }
+        $svc->reset('earner', $token, $pw, $request->ip());
+        return Response::redirect('/login?reset=1');
     }
 
     public function login(Request $request): Response

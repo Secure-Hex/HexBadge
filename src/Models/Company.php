@@ -15,14 +15,4 @@ final class Company extends Model
     {
         return static::db()->fetchAll('SELECT * FROM companies ORDER BY name ASC');
     }
-
-    /**
-     * Empresas activas (para selectores de emisión/asignación).
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    public static function allActive(): array
-    {
-        return static::db()->fetchAll('SELECT * FROM companies WHERE is_active = 1 ORDER BY name ASC');
-    }
 }

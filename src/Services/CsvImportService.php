@@ -6,6 +6,7 @@ namespace HexBadge\Services;
 
 use HexBadge\Core\Database;
 use HexBadge\Core\Validator;
+use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\BulkImportJob;
 
 /**
@@ -29,9 +30,15 @@ final class CsvImportService
      * Procesa un archivo CSV ya validado y movido a storage/temp.
      * Actualiza el job con conteos y errores. Devuelve resumen.
      *
+     * @param ?int $allowedCompanyId Empresa del lote (la del template del
+     *        formulario). Toda fila con su propia columna de template debe
+     *        pertenecer a esta misma empresa; si no, la fila se cuenta como
+     *        error. Evita que un sub-admin emita con un template ajeno
+     *        poniendo su UUID en el CSV.
+     *
      * @return array{total:int,success:int,errors:int,skipped:int}
      */
-    public function process(int $jobId, string $csvPath, string $templateUuid, int $userId): array
+    public function process(int $jobId, string $csvPath, string $templateUuid, int $userId, ?int $allowedCompanyId = null): array
     {
         // El envío de correos en línea puede tardar; evitar el timeout de PHP.
         @set_time_limit(0);
@@ -76,6 +83,19 @@ final class CsvImportService
         $iLocale = $find(['locale', 'idioma']);
         $iTpl    = $find(['badge_template_id', 'template_id', 'template', 'badge', 'uuid']);
 
+        // Empresa de cada template por UUID, cacheada (la mayoría de filas
+        // repiten el mismo template). false = el template no existe.
+        $companyOf = static function (string $uuid): int|false|null {
+            static $cache = [];
+            if (!array_key_exists($uuid, $cache)) {
+                $t = BadgeTemplate::findByUuid($uuid);
+                $cache[$uuid] = $t === null
+                    ? false
+                    : (isset($t['company_id']) ? (int) $t['company_id'] : null);
+            }
+            return $cache[$uuid];
+        };
+
         $line = 1;
         while (($row = fgetcsv($handle)) !== false) {
             $line++;
@@ -88,6 +108,11 @@ final class CsvImportService
 
             try {
                 $tplUuid   = $cell($iTpl) !== '' ? $this->validator->uuid($cell($iTpl)) : $templateUuid;
+                // Aislamiento por empresa: una fila no puede emitir con un
+                // template de otra empresa (el del formulario ya fue validado).
+                if ($tplUuid !== $templateUuid && $companyOf($tplUuid) !== $allowedCompanyId) {
+                    throw new \RuntimeException('Template fuera de tu empresa');
+                }
                 $firstName = $this->validator->name($cell($iFirst));
                 $lastName  = $this->validator->name($cell($iLast));
                 $email     = $this->validator->email($cell($iEmail));

@@ -33,6 +33,10 @@ $router->get('/login', [EarnerAuthController::class, 'showLogin']);
 $router->post('/login', [EarnerAuthController::class, 'login']);
 $router->get('/login/2fa', [EarnerAuthController::class, 'showTwoFactor']);
 $router->post('/login/2fa', [EarnerAuthController::class, 'twoFactor']);
+$router->get('/forgot-password', [EarnerAuthController::class, 'showForgot']);
+$router->post('/forgot-password', [EarnerAuthController::class, 'sendReset']);
+$router->get('/reset-password/{token}', [EarnerAuthController::class, 'showReset']);
+$router->post('/reset-password/{token}', [EarnerAuthController::class, 'reset']);
 $router->get('/logout', [EarnerAuthController::class, 'logout']);
 
 // Seguridad de la cuenta (contraseña + 2FA)
