@@ -93,6 +93,9 @@ foreach (social_networks() as $net) {
     <!-- Badge verificado -->
     <article class="badge-verify card">
         <div class="badge-verify-media">
+            <?php if (!empty($logoUrl)): ?>
+                <div class="bv-logo"><img src="<?= e($logoUrl) ?>" alt="<?= e((string) ($b['company_name'] ?? $b['issuer_name'] ?? '')) ?>"></div>
+            <?php endif; ?>
             <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="<?= e((string) $b['template_name']) ?>">
             <span class="badge-status <?= $stateClass ?>"><?= $stateLabel ?></span>
         </div>

@@ -75,9 +75,60 @@ $companies = $companies ?? [];
         <option value="0" <?= ((int) ($t['is_public'] ?? 1) === 0) ? 'selected' : '' ?>>Privado</option>
     </select>
 
-    <label for="certificate_image">Plantilla de certificado / diploma (opcional) — imagen PNG/JPG, máx 8MB</label>
-    <input type="file" id="certificate_image" name="certificate_image" accept="image/png,image/jpeg">
-    <small class="muted" style="display:block;margin-top:-.3rem">Distinta de la imagen del badge. Tras subirla, vas a poder marcar dónde van el nombre, el QR, la fecha y el ID. <?php if ($isEdit && !empty($t['certificate_filename'])): ?><strong>Ya hay una plantilla cargada</strong> (subí otra para reemplazarla).<?php endif; ?></small>
+    <?php
+    $diplomaTemplates = $diplomaTemplates ?? [];
+    $curLink = (int) ($t['certificate_template_id'] ?? 0);
+    $curOwn  = $curLink === 0 && !empty($t['certificate_filename']);
+    $curMode = $curLink > 0 ? 'template' : ($curOwn ? 'upload' : 'none');
+    ?>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:1rem;margin-top:1rem">
+        <legend style="padding:0 .4rem;font-weight:600">Diploma / certificado</legend>
 
-    <button type="submit" class="btn btn-primary btn-block"><?= $isEdit ? 'Guardar cambios' : 'Crear template' ?></button>
+        <label class="cert-opt" style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0">
+            <input type="radio" name="cert_mode" value="none" <?= $curMode === 'none' ? 'checked' : '' ?>> Sin diploma
+        </label>
+
+        <label class="cert-opt" style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0">
+            <input type="radio" name="cert_mode" value="upload" <?= $curMode === 'upload' ? 'checked' : '' ?>> Subir una imagen propia y marcarla
+        </label>
+        <div data-cert-mode="upload" style="margin:.2rem 0 .6rem 1.7rem">
+            <input type="file" id="certificate_image" name="certificate_image" accept="image/png,image/jpeg">
+            <small class="muted" style="display:block">PNG/JPG, máx 8MB. Tras subirla marcás dónde van el nombre, el QR, la fecha y el ID. <?php if ($curOwn): ?><strong>Ya hay una imagen propia cargada</strong> (subí otra para reemplazarla).<?php endif; ?></small>
+        </div>
+
+        <label class="cert-opt" style="display:flex;gap:.5rem;align-items:center;margin:.3rem 0">
+            <input type="radio" name="cert_mode" value="template" <?= $curMode === 'template' ? 'checked' : '' ?> <?= empty($diplomaTemplates) ? 'disabled' : '' ?>> Usar una plantilla de diploma guardada
+        </label>
+        <div data-cert-mode="template" style="margin:.2rem 0 .6rem 1.7rem">
+            <?php if (empty($diplomaTemplates)): ?>
+                <small class="muted">No hay plantillas guardadas. Creá una en <a href="/admin/diploma-templates">Plantillas de diplomas</a>.</small>
+            <?php else: ?>
+                <select name="certificate_template_id">
+                    <?php foreach ($diplomaTemplates as $dt): ?>
+                        <option value="<?= (int) $dt['id'] ?>" <?= $curLink === (int) $dt['id'] ? 'selected' : '' ?>><?= e((string) $dt['name']) ?><?= empty($dt['config']) ? ' (sin marcar)' : '' ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="muted" style="display:block">Referencia viva: si editás la plantilla, cambian los diplomas de esta acreditación.</small>
+            <?php endif; ?>
+        </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem"><?= $isEdit ? 'Guardar cambios' : 'Crear template' ?></button>
 </form>
+
+<script>
+(function () {
+    var form = document.currentScript.previousElementSibling;
+    function sync() {
+        var sel = document.querySelector('input[name="cert_mode"]:checked');
+        var v = sel ? sel.value : 'none';
+        document.querySelectorAll('[data-cert-mode]').forEach(function (el) {
+            el.style.display = el.getAttribute('data-cert-mode') === v ? '' : 'none';
+        });
+    }
+    document.querySelectorAll('input[name="cert_mode"]').forEach(function (r) {
+        r.addEventListener('change', sync);
+    });
+    sync();
+})();
+</script>

@@ -415,6 +415,21 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .social-link svg{width:16px;height:16px;fill:currentColor;flex:none}
 .social-link:hover{background:var(--brand,var(--primary));border-color:var(--brand,var(--primary));color:#fff;box-shadow:0 2px 8px rgba(16,27,46,.16)}
 
+/* ---- Buscador de personas (autocompletar en la wallet) ---- */
+.people-search{position:relative;max-width:440px;margin:0 auto 1.5rem}
+.people-search-icon{position:absolute;left:.95rem;top:50%;transform:translateY(-50%);width:18px;height:18px;fill:var(--muted);pointer-events:none}
+.people-search-input{width:100%;padding:.6rem 1rem .6rem 2.6rem;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-pill);font:inherit;font-size:.95rem;color:var(--text)}
+.people-search-input::placeholder{color:var(--muted-2)}
+.people-search-input:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+.people-search-results{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(16,27,46,.16);max-height:360px;overflow:auto;padding:.35rem}
+.person-card{display:flex;align-items:center;gap:.7rem;padding:.5rem .6rem;border-radius:var(--radius-sm);text-decoration:none;color:var(--text)}
+.person-card:hover{background:var(--surface-2)}
+.person-avatar{flex:none;width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--primary-soft);display:flex;align-items:center;justify-content:center}
+.person-avatar img{width:100%;height:100%;object-fit:cover}
+.person-avatar span{font-weight:700;color:var(--primary)}
+.person-name{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-empty{margin:0;padding:.6rem;color:var(--muted);font-size:.9rem}
+
 /* ---- Form de edición de perfil ---- */
 .pf-wrap{max-width:640px;margin:0 auto}
 .pf-head{margin:.5rem 0 1.25rem}
@@ -465,6 +480,8 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .badge-verify-media{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem 1.5rem;background:var(--surface-2);border-right:1px solid var(--border)}
 .badge-verify-media img{width:200px;height:200px;object-fit:contain}
 .badge-verify-media .badge-status{font-size:.9rem;padding:.35rem .9rem}
+.bv-logo{width:100%;display:flex;justify-content:center;align-items:center;margin-bottom:.25rem}
+.bv-logo img{max-height:80px;max-width:100%;width:auto;height:auto;object-fit:contain}
 .badge-verify-body{padding:1.75rem 1.85rem}
 .bv-eyebrow{text-transform:uppercase;letter-spacing:.07em;font-size:.72rem;font-weight:700;color:var(--primary);margin:0 0 .15rem}
 .badge-verify-body h2{font-size:1.4rem;margin:0 0 .25rem;letter-spacing:-.015em}

@@ -5,7 +5,7 @@
  */
 ?>
 <h1>Auditoría</h1>
-<form method="GET" action="/admin/audit" style="max-width:360px">
+<form method="GET" action="/admin/audit" data-live style="max-width:360px">
     <label for="action">Filtrar por acción</label>
     <div style="display:flex;gap:.5rem">
         <input type="text" id="action" name="action" value="<?= e($action) ?>" placeholder="badge.issued">
@@ -13,6 +13,7 @@
     </div>
 </form>
 
+<div data-live-results>
 <?php if (empty($logs)): ?>
     <p class="muted" style="margin-top:1rem">Sin registros.</p>
 <?php else: ?>
@@ -31,3 +32,4 @@
         </tbody>
     </table>
 <?php endif; ?>
+</div>

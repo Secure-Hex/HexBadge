@@ -145,6 +145,14 @@ function profile_image_url(?string $filename): string
 }
 
 /**
+ * URL pública del logo de una empresa.
+ */
+function logo_image_url(?string $filename): string
+{
+    return public_url('uploads/logos/' . basename((string) $filename));
+}
+
+/**
  * Definición de las redes/enlaces del perfil del receptor: columna en
  * `earners`, etiqueta, color de marca y path SVG (simple-icons, viewBox 24).
  * Compartida por el formulario de edición y la wallet pública.

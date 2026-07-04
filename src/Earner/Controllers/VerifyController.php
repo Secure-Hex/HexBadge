@@ -81,6 +81,7 @@ final class VerifyController
             'verifyUrl'       => $verifyUrl,
             'jsonUrl'         => $verifyUrl . '.json',
             'imageUrl'        => badge_image_url((string) $badge['image_filename']),
+            'logoUrl'         => !empty($badge['logo_filename']) ? logo_image_url((string) $badge['logo_filename']) : null,
             'addToProfileUrl' => 'https://www.linkedin.com/profile/add?' . http_build_query($linkedinParams),
             'shareUrl'        => 'https://www.linkedin.com/sharing/share-offsite/?url=' . rawurlencode($verifyUrl),
             'certificateUrl'  => (($badge['status'] ?? '') !== 'revoked' && CertificateService::hasCertificate($badge))

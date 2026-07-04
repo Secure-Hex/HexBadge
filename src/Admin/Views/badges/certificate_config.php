@@ -4,13 +4,25 @@
  * en vivo: cada caja muestra texto de muestra con la tipografía/color/tamaño
  * elegidos, y el QR un placeholder.
  *
- * @var array<string,mixed>            $template
+ * Reutilizable: lo usan tanto el certificado de una acreditación como una
+ * plantilla de diploma guardada. Los destinos vienen por parámetro.
+ *
  * @var array<int,array<string,mixed>> $fonts
- * @var string                         $config    JSON actual
+ * @var string                         $config       JSON actual
  * @var string                         $imageUrl
+ * @var string                         $saveUrl      POST del marcado
+ * @var string                         $backUrl
+ * @var string                         $backLabel
+ * @var string                         $heading
+ * @var string                         $subjectName  nombre para la muestra "curso"
+ * @var string|null                    $deleteUrl    si se pasa, muestra el botón de quitar
+ * @var string                         $deleteLabel
+ * @var string                         $deleteConfirm
  */
 use HexBadge\Core\CSRF;
 use HexBadge\Core\QrCode;
+
+$deleteUrl = $deleteUrl ?? null;
 
 $fontOptions = '';
 $fontFaces   = '';
@@ -24,12 +36,14 @@ $ts    = time();
 $meses = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 $samples = [
     'name'    => 'John Doe',
-    'course'  => (string) $template['name'],
+    'course'  => (string) $subjectName,
     'cert_id' => uuid4(),
     'date'    => [
-        'long_es' => (int) date('j', $ts) . ' de ' . $meses[(int) date('n', $ts)] . ' de ' . date('Y', $ts),
-        'short'   => date('d/m/Y', $ts),
-        'long_en' => date('F j, Y', $ts),
+        'long_es'    => (int) date('j', $ts) . ' de ' . $meses[(int) date('n', $ts)] . ' de ' . date('Y', $ts),
+        'short'      => date('d/m/Y', $ts),
+        'short_dash' => date('d-m-Y', $ts),
+        'iso'        => date('Y-m-d', $ts),
+        'long_en'    => date('F j, Y', $ts),
     ],
 ];
 $qrSvg = QrCode::svg(public_url('verify/ejemplo')) ?? '';
@@ -40,7 +54,14 @@ $textRow = static function (string $key, string $label, bool $optional, string $
         ? '<label class="cf-toggle"><input type="checkbox" class="cf-enable" data-field="' . $key . '"> Incluir</label>'
         : '';
     $date = $key === 'date'
-        ? '<select class="cf-format" data-field="date"><option value="long_es">26 de junio de 2026</option><option value="short">26/06/2026</option><option value="long_en">June 26, 2026</option></select>'
+        ? '<label class="cf-fmt-label" title="Formato de fecha">Formato'
+            . '<select class="cf-format" data-field="date">'
+            . '<option value="long_es">26 de junio de 2026</option>'
+            . '<option value="short">26/06/2026</option>'
+            . '<option value="short_dash">26-06-2026</option>'
+            . '<option value="iso">2026-06-26</option>'
+            . '<option value="long_en">June 26, 2026</option>'
+            . '</select></label>'
         : '';
     return '<div class="cf-row" data-field="' . $key . '">'
         . '<div class="cf-row-head"><strong>' . e($label) . '</strong>' . $opt . '</div>'
@@ -70,15 +91,17 @@ $textRow = static function (string $key, string $label, bool $optional, string $
 .cf-controls .cf-color{width:38px;height:34px;padding:2px}
 .cf-toggle{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.3rem;margin:0}
 .cf-row.off{opacity:.45}
+.cf-fmt-label{flex:1 0 100%;display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted);margin:0}
+.cf-fmt-label select{flex:1}
 </style>
 
 <div class="page-head">
-    <h1>Certificado — <?= e((string) $template['name']) ?></h1>
-    <a class="btn" href="/admin/templates/<?= e((string) $template['uuid']) ?>">Volver al template</a>
+    <h1><?= e((string) $heading) ?></h1>
+    <a class="btn" href="<?= e((string) $backUrl) ?>"><?= e((string) $backLabel) ?></a>
 </div>
 <p class="muted">Arrastrá cada caja sobre la plantilla y ajustá su tamaño con el punto de la esquina. El texto de muestra (John Doe, la fecha de hoy, un ID y un QR de ejemplo) se actualiza al vuelo con la tipografía, color y tamaño que elijas. El QR real apuntará a la URL de verificación de cada acreditación.</p>
 
-<form method="POST" action="/admin/templates/<?= e((string) $template['uuid']) ?>/certificate"
+<form method="POST" action="<?= e((string) $saveUrl) ?>"
       class="cf-wrap" id="cf-form"
       data-config='<?= e($config) ?>'
       data-samples='<?= e(json_encode($samples, JSON_UNESCAPED_UNICODE)) ?>'>
@@ -104,10 +127,12 @@ $textRow = static function (string $key, string $label, bool $optional, string $
 
 <div id="cf-qr-src" hidden><?= $qrSvg ?></div>
 
-<form method="POST" action="/admin/templates/<?= e((string) $template['uuid']) ?>/certificate/delete"
-      onsubmit="return confirm('¿Quitar el certificado de este template?')" style="margin-top:1rem">
+<?php if ($deleteUrl !== null): ?>
+<form method="POST" action="<?= e((string) $deleteUrl) ?>"
+      onsubmit="return confirm('<?= e((string) $deleteConfirm) ?>')" style="margin-top:1rem">
     <?= CSRF::field() ?>
-    <button type="submit" class="btn btn-danger btn-sm">Quitar certificado del template</button>
+    <button type="submit" class="btn btn-danger btn-sm"><?= e((string) $deleteLabel) ?></button>
 </form>
+<?php endif; ?>
 
 <script src="/assets/js/cert-marker.js?v=2"></script>

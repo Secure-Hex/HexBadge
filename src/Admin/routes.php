@@ -26,6 +26,7 @@ use HexBadge\Admin\Controllers\ApiKeyController;
 use HexBadge\Admin\Controllers\AuditController;
 use HexBadge\Admin\Controllers\SettingsController;
 use HexBadge\Admin\Controllers\CertificateController;
+use HexBadge\Admin\Controllers\DiplomaTemplateController;
 use HexBadge\Admin\Controllers\CompanyController;
 use HexBadge\Admin\Controllers\FontController;
 use HexBadge\Admin\Controllers\ApiController;
@@ -69,11 +70,23 @@ $router->get('/admin/templates/new', [BadgeTemplateController::class, 'create'])
 $router->post('/admin/templates', [BadgeTemplateController::class, 'store']);
 $router->get('/admin/templates/{uuid}/edit', [BadgeTemplateController::class, 'edit']);
 $router->post('/admin/templates/{uuid}/archive', [BadgeTemplateController::class, 'archive']);
+$router->get('/admin/templates/{uuid}/certificates', [CertificateController::class, 'downloadIndex']);
+$router->post('/admin/templates/{uuid}/certificates', [CertificateController::class, 'downloadBundle']);
 $router->get('/admin/templates/{uuid}/certificate', [CertificateController::class, 'show']);
 $router->post('/admin/templates/{uuid}/certificate/delete', [CertificateController::class, 'delete']);
 $router->post('/admin/templates/{uuid}/certificate', [CertificateController::class, 'save']);
 $router->get('/admin/templates/{uuid}', [BadgeTemplateController::class, 'show']);
 $router->post('/admin/templates/{uuid}', [BadgeTemplateController::class, 'update']);
+
+// --- Plantillas de diplomas reutilizables (específicas antes que {uuid}) ---
+$router->get('/admin/diploma-templates', [DiplomaTemplateController::class, 'index']);
+$router->get('/admin/diploma-templates/new', [DiplomaTemplateController::class, 'create']);
+$router->post('/admin/diploma-templates', [DiplomaTemplateController::class, 'store']);
+$router->get('/admin/diploma-templates/{uuid}/edit', [DiplomaTemplateController::class, 'edit']);
+$router->get('/admin/diploma-templates/{uuid}/mark', [DiplomaTemplateController::class, 'mark']);
+$router->post('/admin/diploma-templates/{uuid}/mark', [DiplomaTemplateController::class, 'save']);
+$router->post('/admin/diploma-templates/{uuid}/delete', [DiplomaTemplateController::class, 'delete']);
+$router->post('/admin/diploma-templates/{uuid}', [DiplomaTemplateController::class, 'update']);
 
 // --- Emisión individual ---
 $router->get('/admin/issue', [IssueController::class, 'form']);
@@ -92,6 +105,7 @@ $router->get('/admin/badges/{uuid}', [BadgeController::class, 'show']);
 
 // --- Earners ---
 $router->get('/admin/earners', [EarnerController::class, 'index']);
+$router->get('/admin/earners/export', [EarnerController::class, 'export']);
 $router->get('/admin/earners/{uuid}', [EarnerController::class, 'show']);
 
 // --- Analytics ---
@@ -101,6 +115,8 @@ $router->get('/admin/analytics/export', [AnalyticsController::class, 'export']);
 // --- Usuarios (solo superadmin) ---
 $router->get('/admin/users', [UserController::class, 'index']);
 $router->post('/admin/users', [UserController::class, 'invite']);
+$router->get('/admin/users/{uuid}/edit', [UserController::class, 'edit']);
+$router->post('/admin/users/{uuid}', [UserController::class, 'update']);
 
 // --- API keys ---
 $router->get('/admin/api-keys', [ApiKeyController::class, 'index']);

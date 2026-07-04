@@ -49,6 +49,17 @@ CREATE TABLE IF NOT EXISTS users (
     FOREIGN KEY (company_id) REFERENCES companies(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Empresas accesibles por un usuario (admin/issuer con acceso a >1 empresa).
+-- users.company_id es la primaria; el conjunto completo vive acá. El scoping en
+-- runtime sigue siendo de UNA empresa a la vez (switcher).
+CREATE TABLE IF NOT EXISTS user_companies (
+    user_id    INT UNSIGNED NOT NULL,
+    company_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (user_id, company_id),
+    FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- API Keys para integración programática
 CREATE TABLE IF NOT EXISTS api_keys (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -81,8 +92,9 @@ CREATE TABLE IF NOT EXISTS badge_templates (
     issuer_url      VARCHAR(500) NOT NULL DEFAULT 'https://securehex.cl',
     issuer_email    VARCHAR(255) NULL,
     linkedin_org_id VARCHAR(20) NULL,                  -- Organization ID de LinkedIn del emisor (por template)
-    certificate_filename VARCHAR(255) NULL,            -- Plantilla de certificado (imagen); NULL = sin diploma
-    certificate_config   JSON NULL,                    -- Posiciones/estilos marcados sobre la plantilla
+    certificate_filename VARCHAR(255) NULL,            -- Plantilla de certificado propia (imagen); NULL = sin diploma propio
+    certificate_config   JSON NULL,                    -- Posiciones/estilos marcados sobre la plantilla propia
+    certificate_template_id INT UNSIGNED NULL,         -- Si se usa una plantilla de diploma guardada (referencia viva); tiene prioridad sobre la propia
     expires_days    INT UNSIGNED NULL,                 -- NULL = no expira
     is_active       TINYINT(1) NOT NULL DEFAULT 1,
     is_public       TINYINT(1) NOT NULL DEFAULT 1,
@@ -90,7 +102,24 @@ CREATE TABLE IF NOT EXISTS badge_templates (
     state           ENUM('draft','active','archived') NOT NULL DEFAULT 'draft',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_cert_template (certificate_template_id),
     FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (company_id) REFERENCES companies(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Plantillas de diplomas reutilizables (una empresa puede guardar varias y
+-- referenciarlas desde sus acreditaciones; ver certificate_template_id arriba).
+CREATE TABLE IF NOT EXISTS diploma_templates (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    uuid           CHAR(36) NOT NULL UNIQUE,
+    company_id     INT UNSIGNED NULL,                 -- NULL = global (superadmin)
+    created_by     INT UNSIGNED NULL,
+    name           VARCHAR(150) NOT NULL,
+    image_filename VARCHAR(255) NULL,                 -- imagen base en uploads/certificates/
+    config         JSON NULL,                         -- posiciones/estilos (mismo formato que certificate_config)
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_company (company_id),
     FOREIGN KEY (company_id) REFERENCES companies(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -204,7 +233,8 @@ CREATE TABLE IF NOT EXISTS user_invitations (
     uuid        CHAR(36) NOT NULL UNIQUE,
     email       VARCHAR(255) NOT NULL,
     role        ENUM('superadmin','admin','issuer') NOT NULL DEFAULT 'issuer',
-    company_id  INT UNSIGNED NULL,                     -- empresa del futuro usuario (multitenancy)
+    company_id  INT UNSIGNED NULL,                     -- empresa primaria del futuro usuario (multitenancy)
+    company_ids JSON NULL,                             -- conjunto completo de empresas (>1); null = solo la primaria
     token_hash  VARCHAR(255) NOT NULL UNIQUE,          -- SHA-256 del token enviado por email
     invited_by  INT UNSIGNED NOT NULL,
     expires_at  DATETIME NOT NULL,

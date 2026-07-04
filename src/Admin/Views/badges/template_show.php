@@ -41,19 +41,28 @@ $t = $template;
         </p>
 
         <?php
-        $hasCertImg = !empty($t['certificate_filename']);
-        $hasCertCfg = $hasCertImg && !empty($t['certificate_config']);
+        $linked     = !empty($t['certificate_template_id']);
+        $eff        = \HexBadge\Models\BadgeTemplate::withEffectiveCert($t);
+        $hasCertImg = !empty($eff['certificate_filename']);
+        $hasCertCfg = $hasCertImg && !empty($eff['certificate_config']);
         ?>
         <p class="muted">Certificado / diploma:
-            <?php if ($hasCertCfg): ?><span class="badge-status status-accepted">configurado</span>
+            <?php if ($linked): ?><span class="badge-status status-accepted">plantilla guardada<?= $hasCertCfg ? '' : ' (sin marcar)' ?></span>
+            <?php elseif ($hasCertCfg): ?><span class="badge-status status-accepted">configurado</span>
             <?php elseif ($hasCertImg): ?><span class="badge-status status-pending">plantilla cargada, falta marcar</span>
-            <?php else: ?><span>— sin certificado (subí una plantilla al editar el template)</span><?php endif; ?>
+            <?php else: ?><span>— sin diploma (elegí uno al editar el template)</span><?php endif; ?>
         </p>
 
         <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
             <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/edit">Editar</a>
-            <?php if ($hasCertImg): ?>
+            <?php if ($hasCertImg && !$linked): ?>
                 <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/certificate"><?= $hasCertCfg ? 'Reconfigurar certificado' : 'Marcar certificado' ?></a>
+            <?php endif; ?>
+            <?php if ($linked): ?>
+                <a class="btn" href="/admin/diploma-templates">Editar plantilla de diploma</a>
+            <?php endif; ?>
+            <?php if ($hasCertCfg): ?>
+                <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/certificates">Descargar diplomas</a>
             <?php endif; ?>
             <?php if ($t['state'] === 'active'): ?>
                 <a class="btn btn-primary" href="/admin/issue?template=<?= e((string) $t['uuid']) ?>">Emitir este badge</a>

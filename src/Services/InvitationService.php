@@ -22,8 +22,10 @@ final class InvitationService
 
     /**
      * Crea una invitación y envía el email. Devuelve el token crudo.
+     *
+     * @param array<int,int> $companyIds empresas del futuro usuario (1+); vacío para superadmin.
      */
-    public function invite(string $email, string $role, int $invitedBy, ?int $companyId = null): string
+    public function invite(string $email, string $role, int $invitedBy, array $companyIds = []): string
     {
         $email = strtolower($email);
 
@@ -36,27 +38,31 @@ final class InvitationService
         if (UserInvitation::hasPending($email)) {
             throw new InvalidArgumentException('Ya hay una invitación pendiente para ese email');
         }
-        // Un superadmin es global (sin empresa); el resto de roles requiere una.
-        if ($role !== 'superadmin' && $companyId === null) {
-            throw new InvalidArgumentException('Elegí la empresa para este usuario');
-        }
+
+        $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
+        // Un superadmin es global (sin empresa); el resto requiere al menos una.
         if ($role === 'superadmin') {
-            $companyId = null;
+            $companyIds = [];
+        } elseif ($companyIds === []) {
+            throw new InvalidArgumentException('Elegí al menos una empresa para este usuario');
         }
+        $primary = $companyIds[0] ?? null;
 
         $rawToken  = bin2hex(random_bytes(32));
         $tokenHash = hash('sha256', $rawToken);
         $expiresAt = date('Y-m-d H:i:s', time() + (7 * 86400)); // 7 días
 
         UserInvitation::create([
-            'uuid'       => uuid4(),
-            'email'      => $email,
-            'role'       => $role,
-            'company_id' => $companyId,
-            'token_hash' => $tokenHash,
-            'invited_by' => $invitedBy,
-            'expires_at' => $expiresAt,
+            'uuid'        => uuid4(),
+            'email'       => $email,
+            'role'        => $role,
+            'company_id'  => $primary,
+            'company_ids' => $companyIds !== [] ? json_encode($companyIds) : null,
+            'token_hash'  => $tokenHash,
+            'invited_by'  => $invitedBy,
+            'expires_at'  => $expiresAt,
         ]);
+        $companyId = $primary;
 
         $companyName = $companyId !== null ? (string) (Company::find($companyId)['name'] ?? '') : null;
         $this->sendEmail($email, $rawToken, $role, $companyName !== '' ? $companyName : null, $companyId);
@@ -104,6 +110,14 @@ final class InvitationService
             'company_id'    => $inv['company_id'] !== null ? (int) $inv['company_id'] : null,
             'is_active'     => 1,
         ]);
+
+        // Set completo de empresas (multitenancy). Superadmin no tiene ninguna.
+        $companyIds = $inv['company_ids'] !== null
+            ? (array) json_decode((string) $inv['company_ids'], true)
+            : ($inv['company_id'] !== null ? [(int) $inv['company_id']] : []);
+        if ($companyIds !== []) {
+            User::setCompanies($userId, $companyIds);
+        }
 
         UserInvitation::updateById((int) $inv['id'], ['accepted_at' => date('Y-m-d H:i:s')]);
         Logger::audit('user.invitation.accepted', $userId, 'user', null, ['email' => $inv['email']]);

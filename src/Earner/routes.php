@@ -16,6 +16,7 @@ use HexBadge\Earner\Controllers\ProfileController;
 use HexBadge\Earner\Controllers\SecurityController;
 use HexBadge\Earner\Controllers\VerifyController;
 use HexBadge\Earner\Controllers\CertificateController;
+use HexBadge\Earner\Controllers\DirectoryController;
 
 /** @var \HexBadge\Core\Router $router */
 
@@ -49,6 +50,9 @@ $router->post('/me/security/totp/disable', [SecurityController::class, 'totpDisa
 // Claim del badge (login o registro + aceptación)
 $router->get('/accept/{token}', [AcceptController::class, 'show']);
 $router->post('/accept/{token}', [AcceptController::class, 'claim']);
+
+// Directorio de personas (buscar otros receptores)
+$router->get('/buscar', [DirectoryController::class, 'search']);
 
 // Panel privado / perfil
 $router->get('/me', [ProfileController::class, 'me']);

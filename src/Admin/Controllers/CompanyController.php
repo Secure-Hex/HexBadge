@@ -14,6 +14,7 @@ use HexBadge\Core\Session;
 use HexBadge\Core\Validator;
 use HexBadge\Models\Company;
 use HexBadge\Services\EmailService;
+use HexBadge\Services\ImageService;
 use InvalidArgumentException;
 
 /**
@@ -56,12 +57,14 @@ final class CompanyController extends Controller
         $this->verifyCsrf($request);
 
         try {
-            $data = $this->validateInput($request);
+            // Al crear se guarda todo junto (emisor + SMTP).
+            $data = array_merge($this->validateProfile($request), $this->validateSmtp($request));
             $uuid = uuid4();
             $pass = (string) $request->input('smtp_password', '');
             if ($pass !== '') {
                 $data['smtp_password'] = Crypto::encrypt($pass);
             }
+            $this->handleLogoUpload($request, $data, null);
             Company::create(array_merge($data, ['uuid' => $uuid]));
             Logger::audit('company.created', Auth::id(), 'company', $uuid, ['name' => $data['name']]);
             Session::flash('success', 'Empresa creada.');
@@ -128,17 +131,25 @@ final class CompanyController extends Controller
         }
 
         try {
-            $data = $this->validateInput($request);
-
-            // La contraseña SMTP solo se actualiza si se ingresó una nueva.
-            $pass = (string) $request->input('smtp_password', '');
-            if ($pass !== '') {
-                $data['smtp_password'] = Crypto::encrypt($pass);
+            // Cada sección se guarda por separado: así tocar el logo/emisor no
+            // reescribe el SMTP ni viceversa (dos formularios en la vista).
+            if ((string) $request->input('section', 'profile') === 'smtp') {
+                $data = $this->validateSmtp($request);
+                // La contraseña SMTP solo se actualiza si se ingresó una nueva.
+                $pass = (string) $request->input('smtp_password', '');
+                if ($pass !== '') {
+                    $data['smtp_password'] = Crypto::encrypt($pass);
+                }
+                $flash = 'Configuración SMTP guardada.';
+            } else {
+                $data = $this->validateProfile($request);
+                $this->handleLogoUpload($request, $data, $company);
+                $flash = 'Datos del emisor guardados.';
             }
 
             Company::updateById((int) $company['id'], $data);
             Logger::audit('company.updated', Auth::id(), 'company', $uuid, []);
-            Session::flash('success', 'Empresa actualizada.');
+            Session::flash('success', $flash);
             return $this->redirect(Auth::isSuperadmin() ? '/admin/companies' : '/admin/company');
         } catch (InvalidArgumentException $e) {
             return $this->view('companies/form', [
@@ -177,16 +188,35 @@ final class CompanyController extends Controller
     }
 
     /**
-     * Valida los datos editables de la empresa (sin la contraseña SMTP, que se
-     * maneja aparte por el "dejar vacío = mantener").
+     * Logo opcional: si se subió un archivo lo procesa, lo agrega a $data y
+     * borra el anterior. Si no se subió, no toca logo_filename (mantiene el
+     * actual en edición). Lanza si el archivo es inválido.
+     *
+     * @param array<string,mixed>      $data     (por referencia)
+     * @param array<string,mixed>|null $existing empresa actual (para borrar el logo viejo)
+     */
+    private function handleLogoUpload(Request $request, array &$data, ?array $existing): void
+    {
+        $file = $request->file('logo');
+        if ($file === null || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return;
+        }
+        $service = new ImageService();
+        $data['logo_filename'] = $service->processLogo($file);
+        if ($existing !== null && !empty($existing['logo_filename'])) {
+            $service->deleteLogo((string) $existing['logo_filename']);
+        }
+    }
+
+    /**
+     * Valida los datos del emisor (nombre, URLs, LinkedIn, estado). El logo se
+     * maneja aparte (archivo). No incluye SMTP.
      *
      * @return array<string,mixed>
      */
-    private function validateInput(Request $request): array
+    private function validateProfile(Request $request): array
     {
         $v = new Validator();
-        $smtpHost = trim((string) $request->input('smtp_host', ''));
-
         $data = [
             'name'            => $v->name((string) $request->input('name', ''), 200),
             'issuer_url'      => trim((string) $request->input('issuer_url', '')) !== ''
@@ -194,14 +224,6 @@ final class CompanyController extends Controller
             'issuer_email'    => trim((string) $request->input('issuer_email', '')) !== ''
                 ? $v->email((string) $request->input('issuer_email', '')) : null,
             'linkedin_org_id' => (preg_replace('/\D+/', '', (string) $request->input('linkedin_org_id', '')) ?: null),
-            // SMTP propio (vacío = usa el global).
-            'smtp_host'         => $smtpHost !== '' ? $smtpHost : null,
-            'smtp_port'         => $smtpHost !== '' ? $v->int((string) $request->input('smtp_port', '587'), 1, 65535) : null,
-            'smtp_username'     => trim((string) $request->input('smtp_username', '')) ?: null,
-            'smtp_encryption'   => $v->inList((string) $request->input('smtp_encryption', 'tls'), ['tls', 'ssl', 'none'], 'cifrado'),
-            'smtp_from_address' => trim((string) $request->input('smtp_from_address', '')) !== ''
-                ? $v->email((string) $request->input('smtp_from_address', '')) : null,
-            'smtp_from_name'    => trim((string) $request->input('smtp_from_name', '')) ?: null,
         ];
 
         // is_active solo lo cambia el superadmin (un admin no desactiva su empresa).
@@ -210,5 +232,27 @@ final class CompanyController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Valida el SMTP propio (vacío = usa el global). Sin la contraseña, que se
+     * maneja aparte por el "dejar vacío = mantener".
+     *
+     * @return array<string,mixed>
+     */
+    private function validateSmtp(Request $request): array
+    {
+        $v = new Validator();
+        $smtpHost = trim((string) $request->input('smtp_host', ''));
+
+        return [
+            'smtp_host'         => $smtpHost !== '' ? $smtpHost : null,
+            'smtp_port'         => $smtpHost !== '' ? $v->int((string) $request->input('smtp_port', '587'), 1, 65535) : null,
+            'smtp_username'     => trim((string) $request->input('smtp_username', '')) ?: null,
+            'smtp_encryption'   => $v->inList((string) $request->input('smtp_encryption', 'tls'), ['tls', 'ssl', 'none'], 'cifrado'),
+            'smtp_from_address' => trim((string) $request->input('smtp_from_address', '')) !== ''
+                ? $v->email((string) $request->input('smtp_from_address', '')) : null,
+            'smtp_from_name'    => trim((string) $request->input('smtp_from_name', '')) ?: null,
+        ];
     }
 }

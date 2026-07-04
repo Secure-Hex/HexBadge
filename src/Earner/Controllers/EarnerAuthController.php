@@ -99,8 +99,7 @@ final class EarnerAuthController extends EarnerBaseController
 
     public function login(Request $request): Response
     {
-        CSRF::check($request);
-
+        // ponytail: login sin CSRF a pedido; el resto de POST sigue protegido.
         $email = (string) $request->input('email', '');
         try {
             $email = (new Validator())->email($email);

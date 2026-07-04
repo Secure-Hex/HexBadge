@@ -9,13 +9,34 @@
  * @var int                            $perPage
  * @var array<int,array<string,mixed>> $companies
  * @var int|null                       $companyFilter
+ * @var string                         $sort
+ * @var string                         $dir
  */
 use HexBadge\Core\View;
 $showCompany = count($companies) > 1;
+
+// Enlace de cabecera ordenable: recarga con sort/dir (el filtrado en vivo
+// conserva el orden vía los hidden del formulario). Alterna asc/desc al reclicar.
+$baseParams = [
+    'q'        => $filters['q'] ?? '',
+    'status'   => $filters['status'] ?? '',
+    'template' => $filters['template_id'] ?? '',
+    'company'  => $showCompany ? ($companyFilter ?? '') : '',
+    'per'      => $perPage,
+];
+$sortLink = function (string $key, string $label) use ($baseParams, $sort, $dir): string {
+    $nextDir = ($sort === $key && $dir === 'asc') ? 'desc' : 'asc';
+    $arrow   = $sort === $key ? ($dir === 'asc' ? ' ▲' : ' ▼') : '';
+    $qs = http_build_query(array_filter(
+        $baseParams + ['sort' => $key, 'dir' => $nextDir],
+        static fn ($v): bool => $v !== '' && $v !== null
+    ));
+    return '<a href="/admin/badges?' . e($qs) . '">' . e($label) . $arrow . '</a>';
+};
 ?>
 <h1>Badges emitidos</h1>
 
-<form method="GET" action="/admin/badges" style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;max-width:1000px">
+<form method="GET" action="/admin/badges" data-live style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;max-width:1000px">
     <div style="flex:2;min-width:200px">
         <label for="q">Buscar (receptor, email o badge)</label>
         <input type="search" id="q" name="q" value="<?= e((string) ($filters['q'] ?? '')) ?>" placeholder="Ej: ana@correo.com o Ciberseguridad">
@@ -40,6 +61,8 @@ $showCompany = count($companies) > 1;
     </div>
     <?= View::renderPartial('layout/company_filter', ['companies' => $companies, 'selected' => $companyFilter]) ?>
     <?= View::renderPartial('layout/per_page_select', ['perPage' => $perPage]) ?>
+    <input type="hidden" name="sort" value="<?= e($sort) ?>">
+    <input type="hidden" name="dir" value="<?= e($dir) ?>">
     <button type="submit" class="btn">Filtrar</button>
     <?php
     $hasFilters = ($filters['q'] ?? '') !== '' || ($filters['status'] ?? '') !== '' || ($filters['template_id'] ?? '') !== '' || ($showCompany && $companyFilter !== null);
@@ -50,11 +73,12 @@ $showCompany = count($companies) > 1;
     <?php endif; ?>
 </form>
 
+<div data-live-results>
 <?php if (empty($badges)): ?>
     <p class="muted" style="margin-top:1.5rem">No hay badges para esos filtros.</p>
 <?php else: ?>
     <table class="table">
-        <thead><tr><th>Receptor</th><th>Email</th><th>Badge</th><?php if ($showCompany): ?><th>Empresa</th><?php endif; ?><th>Vía</th><th>Fecha</th><th>Estado</th></tr></thead>
+        <thead><tr><th><?= $sortLink('receptor', 'Receptor') ?></th><th><?= $sortLink('email', 'Email') ?></th><th><?= $sortLink('badge', 'Badge') ?></th><?php if ($showCompany): ?><th><?= $sortLink('empresa', 'Empresa') ?></th><?php endif; ?><th><?= $sortLink('via', 'Vía') ?></th><th><?= $sortLink('emitido', 'Emitido') ?></th><th><?= $sortLink('aceptado', 'Aceptado') ?></th><th><?= $sortLink('estado', 'Estado') ?></th></tr></thead>
         <tbody>
         <?php foreach ($badges as $b): ?>
             <tr>
@@ -64,6 +88,7 @@ $showCompany = count($companies) > 1;
                 <?php if ($showCompany): ?><td class="muted"><?= e((string) ($b['company_name'] ?? '—')) ?></td><?php endif; ?>
                 <td><?= e((string) $b['issued_via']) ?></td>
                 <td><?= e((string) $b['issued_at']) ?></td>
+                <td class="muted"><?= $b['accepted_at'] !== null ? e((string) $b['accepted_at']) : '—' ?></td>
                 <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e((string) $b['status']) ?></span></td>
             </tr>
         <?php endforeach; ?>
@@ -80,6 +105,9 @@ $showCompany = count($companies) > 1;
             'template' => $filters['template_id'] ?? '',
             'company'  => $showCompany ? ($companyFilter ?? '') : '',
             'per'      => $perPage,
+            'sort'     => $sort,
+            'dir'      => $dir,
         ],
     ]) ?>
 <?php endif; ?>
+</div>

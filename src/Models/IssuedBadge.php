@@ -37,8 +37,10 @@ final class IssuedBadge extends Model
                     COALESCE(c.issuer_url, bt.issuer_url)           AS issuer_url,
                     COALESCE(c.issuer_email, bt.issuer_email)       AS issuer_email,
                     COALESCE(c.linkedin_org_id, bt.linkedin_org_id) AS linkedin_org_id,
-                    c.name AS company_name,
-                    bt.certificate_filename, bt.certificate_config, bt.updated_at AS template_updated_at,
+                    c.name AS company_name, c.logo_filename,
+                    COALESCE(dt.image_filename, bt.certificate_filename)             AS certificate_filename,
+                    COALESCE(dt.config, bt.certificate_config)                       AS certificate_config,
+                    GREATEST(bt.updated_at, COALESCE(dt.updated_at, bt.updated_at))  AS template_updated_at,
                     e.uuid AS earner_uuid, e.email AS earner_email,
                     e.first_name, e.last_name, e.display_name,
                     e.avatar_filename, e.cover_filename, e.profile_bio,
@@ -47,6 +49,7 @@ final class IssuedBadge extends Model
              JOIN badge_templates bt ON bt.id = ib.badge_template_id
              JOIN earners e ON e.id = ib.earner_id
              LEFT JOIN companies c ON c.id = bt.company_id
+             LEFT JOIN diploma_templates dt ON dt.id = bt.certificate_template_id
              WHERE ib.uuid = ? LIMIT 1',
             [$uuid]
         );
@@ -115,12 +118,13 @@ final class IssuedBadge extends Model
      * @param array<string,mixed> $filters
      * @return array<int,array<string,mixed>>
      */
-    public static function listForAdmin(array $filters = [], int $limit = 1000, int $offset = 0): array
+    public static function listForAdmin(array $filters = [], int $limit = 1000, int $offset = 0, string $sort = 'emitido', string $dir = 'desc'): array
     {
         [$where, $params] = self::adminWhere($filters);
         $limit  = max(1, $limit);
         $offset = max(0, $offset);
-        $sql = "SELECT ib.uuid, ib.status, ib.issued_at, ib.issued_via, ib.expires_at,
+        $orderBy = self::orderBy($sort, $dir);
+        $sql = "SELECT ib.uuid, ib.status, ib.issued_at, ib.accepted_at, ib.issued_via, ib.expires_at,
                        bt.name AS template_name, bt.company_id, co.name AS company_name,
                        e.display_name AS earner_name, e.email AS earner_email
                 FROM issued_badges ib
@@ -128,8 +132,30 @@ final class IssuedBadge extends Model
                 JOIN earners e ON e.id = ib.earner_id
                 LEFT JOIN companies co ON co.id = bt.company_id"
               . $where
-              . " ORDER BY ib.issued_at DESC LIMIT {$limit} OFFSET {$offset}";
+              . " ORDER BY {$orderBy} LIMIT {$limit} OFFSET {$offset}";
         return static::db()->fetchAll($sql, $params);
+    }
+
+    /**
+     * Traduce (sort, dir) del request a una cláusula ORDER BY segura. La columna
+     * viene de una whitelist (nunca del input crudo) para evitar SQL injection.
+     * Desempate por ib.id para orden determinista entre valores iguales.
+     */
+    private static function orderBy(string $sort, string $dir): string
+    {
+        $cols = [
+            'receptor' => 'e.display_name',
+            'email'    => 'e.email',
+            'badge'    => 'bt.name',
+            'empresa'  => 'co.name',
+            'via'      => 'ib.issued_via',
+            'emitido'  => 'ib.issued_at',
+            'aceptado' => 'ib.accepted_at',
+            'estado'   => 'ib.status',
+        ];
+        $col = $cols[$sort] ?? 'ib.issued_at';
+        $dir = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
+        return "{$col} {$dir}, ib.id DESC";
     }
 
     /**

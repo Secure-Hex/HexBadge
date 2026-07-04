@@ -46,12 +46,30 @@ abstract class Controller
      */
     protected function companyFilter(Request $request): ?int
     {
-        if (!Auth::isSuperadmin()) {
-            // Sub-admin sin empresa = estado inválido: no mostrar nada.
-            return Auth::companyId() ?? -1;
+        if (Auth::isSuperadmin()) {
+            $c = (int) $request->query('company', '0');
+            return $c > 0 ? $c : null;
         }
-        $c = (int) $request->query('company', '0');
-        return $c > 0 ? $c : null;
+        // Sub-admin: UNA empresa activa a la vez, tomada del ?company si pertenece
+        // a su set; si no eligió (o eligió una que no es suya) cae a su primaria.
+        return $this->activeCompany((int) $request->query('company', '0'));
+    }
+
+    /**
+     * Resuelve la empresa activa de un sub-admin dentro de su set de empresas.
+     * $requested = id pedido (0 = ninguno). Devuelve la pedida si es válida, si no
+     * la primaria; -1 si el usuario no tiene ninguna empresa (estado inválido).
+     */
+    private function activeCompany(int $requested): int
+    {
+        $ids = Auth::companyIds();
+        if ($ids === []) {
+            return -1;
+        }
+        if ($requested > 0 && in_array($requested, $ids, true)) {
+            return $requested;
+        }
+        return Auth::companyId() ?? $ids[0];
     }
 
     /**
@@ -60,11 +78,13 @@ abstract class Controller
      */
     protected function companyForWrite(Request $request): ?int
     {
-        if (!Auth::isSuperadmin()) {
-            return Auth::companyId();
-        }
         $c = (int) $request->input('company_id', '0');
-        return $c > 0 ? $c : null;
+        if (Auth::isSuperadmin()) {
+            return $c > 0 ? $c : null;
+        }
+        // Sub-admin: la empresa enviada si es suya; si no, su primaria.
+        $active = $this->activeCompany($c);
+        return $active > 0 ? $active : null;
     }
 
     /**
@@ -76,7 +96,7 @@ abstract class Controller
         if (Auth::isSuperadmin()) {
             return null;
         }
-        if ($entityCompanyId !== null && $entityCompanyId === Auth::companyId()) {
+        if ($entityCompanyId !== null && in_array($entityCompanyId, Auth::companyIds(), true)) {
             return null;
         }
         return Response::html('<h1>403 — Acceso denegado</h1>', 403);
@@ -92,12 +112,7 @@ abstract class Controller
         if (Auth::isSuperadmin()) {
             return Company::allOrdered();
         }
-        $cid = Auth::companyId();
-        if ($cid === null) {
-            return [];
-        }
-        $c = Company::find($cid);
-        return $c !== null ? [$c] : [];
+        return Company::whereIds(Auth::companyIds());
     }
 
     /**

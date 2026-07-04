@@ -99,4 +99,27 @@ final class BadgeTemplate extends Model
         $tags = json_decode($json, true);
         return is_array($tags) ? array_values(array_filter($tags, 'is_string')) : [];
     }
+
+    /**
+     * Devuelve la fila con el certificado EFECTIVO resuelto: si la acreditación
+     * referencia una plantilla de diploma guardada, sobrescribe
+     * certificate_filename/certificate_config con los de esa plantilla (referencia
+     * viva). Si no, deja los propios. Útil para las comprobaciones fuera del
+     * pipeline de render (que ya resuelve por SQL en IssuedBadge::findFullByUuid).
+     *
+     * @param array<string,mixed> $t
+     * @return array<string,mixed>
+     */
+    public static function withEffectiveCert(array $t): array
+    {
+        $linkId = (int) ($t['certificate_template_id'] ?? 0);
+        if ($linkId > 0) {
+            $dt = DiplomaTemplate::find($linkId);
+            if ($dt !== null) {
+                $t['certificate_filename'] = $dt['image_filename'];
+                $t['certificate_config']   = $dt['config'];
+            }
+        }
+        return $t;
+    }
 }

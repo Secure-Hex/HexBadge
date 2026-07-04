@@ -24,6 +24,13 @@ final class EarnerController extends Controller
         $search        = trim((string) $request->query('q', ''));
         $companyFilter = $this->companyFilter($request);
 
+        $allowedSort = ['nombre', 'email', 'badges', 'verificado'];
+        $sort = (string) $request->query('sort', '');
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'reciente';
+        }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
         $perPage    = $this->perPage($request);
         $total      = Earner::countForAdmin($search, $companyFilter);
         $totalPages = max(1, (int) ceil($total / $perPage));
@@ -32,7 +39,9 @@ final class EarnerController extends Controller
 
         return $this->view('earner/index', [
             'pageTitle'     => 'Receptores',
-            'earners'       => Earner::listForAdmin($search, $companyFilter, $perPage, $offset),
+            'earners'       => Earner::listForAdmin($search, $companyFilter, $perPage, $offset, $sort, $dir),
+            'sort'          => $sort,
+            'dir'           => $dir,
             'search'        => $search,
             'page'          => $page,
             'totalPages'    => $totalPages,
@@ -41,6 +50,39 @@ final class EarnerController extends Controller
             'companies'     => $this->companiesForSelector(),
             'companyFilter' => $companyFilter,
         ]);
+    }
+
+    /**
+     * GET /admin/earners/export — CSV de todos los receptores con sus badges.
+     * Respeta el filtro de empresa: superadmin exporta a todos.
+     */
+    public function export(Request $request): Response
+    {
+        if ($r = Auth::requireRole('issuer')) {
+            return $r;
+        }
+        $earners = Earner::exportForAdmin($this->companyFilter($request));
+
+        $out = "nombre,email,verificado,acreditaciones\n";
+        foreach ($earners as $e) {
+            $out .= sprintf(
+                "%s,%s,%s,%s\n",
+                $this->csv((string) $e['display_name']),
+                $this->csv((string) $e['email']),
+                ((int) $e['is_verified'] === 1) ? 'si' : 'no',
+                $this->csv((string) ($e['badges'] ?? ''))
+            );
+        }
+
+        return new Response($out, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="receptores_' . date('Ymd') . '.csv"',
+        ]);
+    }
+
+    private function csv(string $v): string
+    {
+        return str_replace([',', "\n", "\r"], [' ', ' ', ' '], $v);
     }
 
     public function show(Request $request, string $uuid): Response

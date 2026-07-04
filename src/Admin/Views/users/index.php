@@ -19,7 +19,7 @@ $showCompany = count($companies) > 1;
 
 <section>
     <h2>Invitar usuario</h2>
-    <form method="POST" action="/admin/users" style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;max-width:760px">
+    <form method="POST" action="/admin/users" style="display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;max-width:820px">
         <?= CSRF::field() ?>
         <div style="flex:2;min-width:180px">
             <label for="email">Email</label>
@@ -34,33 +34,31 @@ $showCompany = count($companies) > 1;
             </select>
         </div>
         <?php if ($showCompany): ?>
-        <div style="flex:1;min-width:160px">
-            <label for="company_id">Empresa</label>
-            <select id="company_id" name="company_id">
-                <option value="">—</option>
-                <?php foreach ($companies as $c): ?>
-                    <option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option>
-                <?php endforeach; ?>
-            </select>
+        <div style="flex:1.5;min-width:240px">
+            <?= View::renderPartial('layout/company_multiselect', ['companies' => $companies, 'selectedIds' => []]) ?>
         </div>
         <?php endif; ?>
-        <button type="submit" class="btn btn-primary">Enviar invitación</button>
+        <div>
+            <label aria-hidden="true" style="visibility:hidden">·</label>
+            <button type="submit" class="btn btn-primary">Enviar invitación</button>
+        </div>
     </form>
     <p class="muted" style="font-size:.85rem">La persona recibe un email con un enlace para definir su contraseña (válido 7 días).<?php if ($showCompany): ?> El rol <strong>Superadmin</strong> es global (ignora la empresa).<?php endif; ?></p>
 </section>
 
 <?php if ($showCompany): ?>
-    <form method="GET" action="/admin/users" style="display:flex;gap:.6rem;align-items:end;margin:1rem 0;max-width:360px">
+    <form method="GET" action="/admin/users" data-live style="display:flex;gap:.6rem;align-items:end;margin:1rem 0;max-width:360px">
         <?= View::renderPartial('layout/company_filter', ['companies' => $companies, 'selected' => $companyFilter]) ?>
         <button type="submit" class="btn">Filtrar</button>
         <?php if ($companyFilter !== null): ?><a class="btn btn-sm" href="/admin/users">Quitar filtros</a><?php endif; ?>
     </form>
 <?php endif; ?>
 
+<div data-live-results>
 <section>
     <h2>Usuarios activos</h2>
     <table class="table">
-        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><?php if ($showCompany): ?><th>Empresa</th><?php endif; ?><th>Activo</th><th>Último login</th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><?php if ($showCompany): ?><th>Empresa</th><?php endif; ?><th>Activo</th><th>Último login</th><?php if ($showCompany): ?><th></th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($users as $u): ?>
             <tr>
@@ -70,6 +68,7 @@ $showCompany = count($companies) > 1;
                 <?php if ($showCompany): ?><td class="muted"><?= e((string) ($u['company_name'] ?? ($u['role'] === 'superadmin' ? 'Global' : '—'))) ?></td><?php endif; ?>
                 <td><?= ((int) $u['is_active'] === 1) ? 'Sí' : 'No' ?></td>
                 <td class="muted"><?= e((string) ($u['last_login_at'] ?? '—')) ?></td>
+                <?php if ($showCompany): ?><td><?php if ($u['role'] !== 'superadmin'): ?><a class="btn btn-sm" href="/admin/users/<?= e((string) $u['uuid']) ?>/edit">Empresas</a><?php endif; ?></td><?php endif; ?>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -104,3 +103,4 @@ $showCompany = count($companies) > 1;
     </table>
 </section>
 <?php endif; ?>
+</div>

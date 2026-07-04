@@ -58,6 +58,7 @@ final class Auth
         Session::set('user_role', (string) $user['role']);
         Session::set('user_name', (string) $user['name']);
         Session::set('company_id', isset($user['company_id']) && $user['company_id'] !== null ? (int) $user['company_id'] : null);
+        Session::set('company_ids', \HexBadge\Models\User::companyIds((int) $user['id']));
 
         Database::getInstance()->update(
             'users',
@@ -96,6 +97,23 @@ final class Auth
     {
         $cid = Session::get('company_id');
         return is_int($cid) ? $cid : null;
+    }
+
+    /**
+     * Todas las empresas a las que el usuario tiene acceso (para el switcher y
+     * las validaciones de acceso). Superadmin devuelve [] (es global, sin filtro).
+     * Fallback para sesiones abiertas antes de la migración: la primaria sola.
+     *
+     * @return array<int,int>
+     */
+    public static function companyIds(): array
+    {
+        $ids = Session::get('company_ids');
+        if (is_array($ids)) {
+            return array_map('intval', $ids);
+        }
+        $cid = self::companyId();
+        return $cid !== null ? [$cid] : [];
     }
 
     public static function isSuperadmin(): bool

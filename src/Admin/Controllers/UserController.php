@@ -54,13 +54,13 @@ final class UserController extends Controller
             $email = $v->email((string) $request->input('email', ''));
             $role  = $v->inList((string) $request->input('role', 'issuer'), $allowedRoles, 'rol');
 
-            // Empresa del futuro usuario: superadmin la elige; admin fuerza la suya.
-            $companyId = $role === 'superadmin' ? null : $this->companyForWrite($request);
-            if ($role !== 'superadmin' && ($companyId === null || !$this->isCompanyAllowed($companyId))) {
-                throw new InvalidArgumentException('Elegí una empresa válida para el usuario.');
+            // Empresas del futuro usuario: superadmin=global; el resto necesita 1+.
+            $companyIds = $this->allowedCompaniesFromRequest($request);
+            if ($role !== 'superadmin' && $companyIds === []) {
+                throw new InvalidArgumentException('Elegí al menos una empresa válida para el usuario.');
             }
 
-            (new InvitationService())->invite($email, $role, (int) Auth::id(), $companyId);
+            (new InvitationService())->invite($email, $role, (int) Auth::id(), $companyIds);
             Session::flash('success', 'Invitación enviada a ' . $email . '.');
             return $this->redirect('/admin/users');
         } catch (InvalidArgumentException $e) {
@@ -127,5 +127,100 @@ final class UserController extends Controller
                 'errors'    => [$e->getMessage()],
             ], 422);
         }
+    }
+
+    /**
+     * GET /admin/users/{uuid}/edit — editar las empresas de un usuario existente.
+     */
+    public function edit(Request $request, string $uuid): Response
+    {
+        if ($r = Auth::requireRole('admin')) {
+            return $r;
+        }
+        $user = User::findByUuid($uuid);
+        if ($user === null || $user['role'] === 'superadmin') {
+            // El superadmin es global: no se le asignan empresas.
+            return Response::html('<h1>404 — Usuario no encontrado</h1>', 404);
+        }
+        if ($resp = $this->assertCanManageUser($user)) {
+            return $resp;
+        }
+        return $this->view('users/edit', [
+            'pageTitle'    => 'Empresas de ' . $user['name'],
+            'user'         => $user,
+            'companies'    => $this->companiesForSelector(),
+            'assignedIds'  => User::companyIds((int) $user['id']),
+            'errors'       => [],
+        ]);
+    }
+
+    /**
+     * POST /admin/users/{uuid} — guardar las empresas del usuario.
+     */
+    public function update(Request $request, string $uuid): Response
+    {
+        if ($r = Auth::requireRole('admin')) {
+            return $r;
+        }
+        $this->verifyCsrf($request);
+        $user = User::findByUuid($uuid);
+        if ($user === null || $user['role'] === 'superadmin') {
+            return Response::html('<h1>404 — Usuario no encontrado</h1>', 404);
+        }
+        if ($resp = $this->assertCanManageUser($user)) {
+            return $resp;
+        }
+
+        $companyIds = $this->allowedCompaniesFromRequest($request);
+        if ($companyIds === []) {
+            return $this->view('users/edit', [
+                'pageTitle'   => 'Empresas de ' . $user['name'],
+                'user'        => $user,
+                'companies'   => $this->companiesForSelector(),
+                'assignedIds' => User::companyIds((int) $user['id']),
+                'errors'      => ['Elegí al menos una empresa válida.'],
+            ], 422);
+        }
+
+        User::setCompanies((int) $user['id'], $companyIds);
+        Session::flash('success', 'Empresas de ' . $user['name'] . ' actualizadas.');
+        return $this->redirect('/admin/users');
+    }
+
+    /**
+     * Ids de empresa enviados en company_ids[] que el usuario actual puede asignar.
+     *
+     * @return array<int,int>
+     */
+    private function allowedCompaniesFromRequest(Request $request): array
+    {
+        $raw = $request->all()['company_ids'] ?? [];
+        $ids = array_map('intval', is_array($raw) ? $raw : []);
+        $ids = array_values(array_filter($ids, fn (int $id): bool => $id > 0 && $this->isCompanyAllowed($id)));
+        // Admin con una sola empresa: no ve el selector, se le fuerza la suya.
+        if ($ids === [] && !Auth::isSuperadmin()) {
+            $mine = Auth::companyIds();
+            if (count($mine) === 1) {
+                return $mine;
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * Un sub-admin solo puede gestionar usuarios que comparten alguna de sus
+     * empresas. El superadmin gestiona a cualquiera. 403 si no está permitido.
+     */
+    private function assertCanManageUser(array $user): ?Response
+    {
+        if (Auth::isSuperadmin()) {
+            return null;
+        }
+        foreach (User::companyIds((int) $user['id']) as $cid) {
+            if ($this->isCompanyAllowed($cid)) {
+                return null;
+            }
+        }
+        return Response::html('<h1>403 — Acceso denegado</h1>', 403);
     }
 }

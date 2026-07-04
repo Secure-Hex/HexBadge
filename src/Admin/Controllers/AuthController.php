@@ -105,8 +105,7 @@ final class AuthController extends Controller
      */
     public function login(Request $request): Response
     {
-        $this->verifyCsrf($request);
-
+        // ponytail: login sin CSRF a pedido; el resto de POST sigue protegido.
         $ip      = $request->ip();
         $limiter = new RateLimiter();
 

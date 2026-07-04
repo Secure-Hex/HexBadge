@@ -18,8 +18,9 @@ $hasSmtpPass = !empty($company['smtp_password']);
     <div class="alert alert-error"><?php foreach ($errors as $err): ?><div><?= e($err) ?></div><?php endforeach; ?></div>
 <?php endif; ?>
 
-<form method="POST" action="<?= $action ?>" style="max-width:580px">
+<form method="POST" action="<?= $action ?>" enctype="multipart/form-data" style="max-width:580px">
     <?= CSRF::field() ?>
+    <?php if ($isEdit): ?><input type="hidden" name="section" value="profile"><?php endif; ?>
 
     <h2 style="font-size:1.05rem;margin:.2rem 0 .6rem">Datos del emisor</h2>
     <p class="muted" style="margin-top:0">Estos datos son el emisor que muestran todos los badges y certificados de la empresa.</p>
@@ -36,6 +37,13 @@ $hasSmtpPass = !empty($company['smtp_password']);
     <label for="linkedin_org_id">LinkedIn Organization ID (opcional)</label>
     <input type="text" id="linkedin_org_id" name="linkedin_org_id" value="<?= $val('linkedin_org_id') ?>" placeholder="Ej: 1234567" inputmode="numeric">
 
+    <label for="logo">Logo de la empresa (opcional) — PNG/JPG/SVG</label>
+    <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/svg+xml">
+    <small class="muted">Si lo cargás, aparece en la página de verificación, arriba de la imagen de la acreditación. Subí uno nuevo para reemplazar el actual.</small>
+    <?php if (!empty($company['logo_filename'])): ?>
+        <img src="<?= e(logo_image_url((string) $company['logo_filename'])) ?>" alt="Logo actual" style="max-height:56px;max-width:200px;margin-top:8px;display:block;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px">
+    <?php endif; ?>
+
     <?php if ($isSuper): ?>
         <label for="is_active">Estado</label>
         <select id="is_active" name="is_active">
@@ -44,10 +52,19 @@ $hasSmtpPass = !empty($company['smtp_password']);
         </select>
     <?php endif; ?>
 
+    <?php if ($isEdit): ?>
+        <button type="submit" class="btn btn-primary" style="margin-top:1rem">Guardar datos del emisor</button>
+</form>
+
+<form method="POST" action="<?= $action ?>" style="max-width:580px;margin-top:2rem;border-top:1px solid var(--border);padding-top:1.5rem">
+    <?= CSRF::field() ?>
+    <input type="hidden" name="section" value="smtp">
+    <?php else: ?>
     <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border)">
+    <?php endif; ?>
 
     <h2 style="font-size:1.05rem;margin:.2rem 0 .6rem">Servidor de correo propio (SMTP)</h2>
-    <p class="muted" style="margin-top:0">Opcional. Si lo dejás <strong>vacío</strong>, la empresa usa el SMTP global de la plataforma. Si lo completás, los correos de esta empresa salen por acá — sin afectar a las demás.</p>
+    <p class="muted" style="margin-top:0">Opcional. Si lo dejás <strong>vacío</strong>, la empresa usa el SMTP global de la plataforma. Si lo completás, los correos de esta empresa salen por acá — sin afectar a las demás.<?= $isEdit ? ' Se guarda por separado de los datos del emisor.' : '' ?></p>
 
     <label for="smtp_host">Host SMTP</label>
     <input type="text" id="smtp_host" name="smtp_host" value="<?= $val('smtp_host') ?>" placeholder="smtp-relay.brevo.com (vacío = usar el global)">
@@ -80,7 +97,7 @@ $hasSmtpPass = !empty($company['smtp_password']);
     <label for="smtp_from_name">Nombre del remitente</label>
     <input type="text" id="smtp_from_name" name="smtp_from_name" value="<?= $val('smtp_from_name') ?>" placeholder="Ej: Cámara Chilena de IA">
 
-    <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem"><?= $isEdit ? 'Guardar cambios' : 'Crear empresa' ?></button>
+    <button type="submit" class="btn btn-primary<?= $isEdit ? '' : ' btn-block' ?>" style="margin-top:1rem"><?= $isEdit ? 'Guardar configuración SMTP' : 'Crear empresa' ?></button>
 </form>
 
 <?php if ($isEdit): ?>

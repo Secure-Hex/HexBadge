@@ -19,6 +19,7 @@ $active = static function (string $href) use ($path): string {
 $icons = [
     'dashboard' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
     'template'  => '<path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="m7.5 9.5 4.5 2.5 4.5-2.5M12 12v6.5"/>',
+    'diploma'   => '<rect x="3" y="4" width="18" height="13" rx="1.5"/><circle cx="12" cy="10" r="2.5"/><path d="m9.5 13-1 6 3.5-2 3.5 2-1-6"/>',
     'issue'     => '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
     'bulk'      => '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/>',
     'badge'     => '<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
@@ -47,6 +48,7 @@ $item = static function (string $href, string $label, string $key) use ($active,
         <div class="nav-section">Operación</div>
         <?= $item('/admin', 'Dashboard', 'dashboard') ?>
         <?= $item('/admin/templates', 'Templates', 'template') ?>
+        <?= $item('/admin/diploma-templates', 'Plantillas de diplomas', 'diploma') ?>
         <?= $item('/admin/issue', 'Emitir badge', 'issue') ?>
         <?= $item('/admin/bulk-issue', 'Emisión masiva', 'bulk') ?>
 

@@ -31,6 +31,13 @@ final class BadgeController extends Controller
             'company_id'  => $companyFilter,
         ];
 
+        $allowedSort = ['receptor', 'email', 'badge', 'empresa', 'via', 'emitido', 'aceptado', 'estado'];
+        $sort = (string) $request->query('sort', 'emitido');
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'emitido';
+        }
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
         $perPage    = $this->perPage($request);
         $total      = IssuedBadge::countForAdmin($filters);
         $totalPages = max(1, (int) ceil($total / $perPage));
@@ -39,7 +46,9 @@ final class BadgeController extends Controller
 
         return $this->view('badges/badges_index', [
             'pageTitle'     => 'Badges emitidos',
-            'badges'        => IssuedBadge::listForAdmin($filters, $perPage, $offset),
+            'badges'        => IssuedBadge::listForAdmin($filters, $perPage, $offset, $sort, $dir),
+            'sort'          => $sort,
+            'dir'           => $dir,
             'templates'     => BadgeTemplate::listForAdmin($companyFilter),
             'filters'       => $filters,
             'page'          => $page,

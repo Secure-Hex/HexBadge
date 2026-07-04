@@ -12,6 +12,7 @@ use HexBadge\Core\Response;
 use HexBadge\Core\Session;
 use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
+use HexBadge\Models\DiplomaTemplate;
 use HexBadge\Services\ImageService;
 use InvalidArgumentException;
 
@@ -40,10 +41,11 @@ final class BadgeTemplateController extends Controller
             return $r;
         }
         return $this->view('badges/template_form', [
-            'pageTitle' => 'Nuevo template',
-            'template'  => null,
-            'errors'    => [],
-            'companies' => $this->companiesForSelector(),
+            'pageTitle'         => 'Nuevo template',
+            'template'          => null,
+            'errors'            => [],
+            'companies'         => $this->companiesForSelector(),
+            'diplomaTemplates'  => DiplomaTemplate::listForAdmin($this->companyFilter($request)),
         ]);
     }
 
@@ -79,24 +81,23 @@ final class BadgeTemplateController extends Controller
 
             Logger::audit('template.created', Auth::id(), 'badge_template', $uuid, ['name' => $data['name']]);
 
-            // Plantilla de certificado opcional: si se subió, ir al marcado.
-            $certFile = $request->file('certificate_image');
-            if ($certFile !== null && ($certFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                $certName = $image->processCertificateUpload($certFile);
-                $new      = BadgeTemplate::findByUuid($uuid);
-                BadgeTemplate::updateById((int) $new['id'], ['certificate_filename' => $certName]);
+            // Diploma: ninguno / imagen propia / plantilla guardada (3 opciones).
+            $new      = BadgeTemplate::findByUuid($uuid);
+            $markUuid = $this->applyCertMode($request, $new);
+            if ($markUuid !== null) {
                 Session::flash('success', 'Template creado. Marcá dónde van los datos en el certificado.');
-                return $this->redirect('/admin/templates/' . $uuid . '/certificate');
+                return $this->redirect('/admin/templates/' . $markUuid . '/certificate');
             }
 
             Session::flash('success', 'Template creado.');
             return $this->redirect('/admin/templates/' . $uuid);
         } catch (InvalidArgumentException $e) {
             return $this->view('badges/template_form', [
-                'pageTitle' => 'Nuevo template',
-                'template'  => $request->all(),
-                'errors'    => [$e->getMessage()],
-                'companies' => $this->companiesForSelector(),
+                'pageTitle'        => 'Nuevo template',
+                'template'         => $request->all(),
+                'errors'           => [$e->getMessage()],
+                'companies'        => $this->companiesForSelector(),
+                'diplomaTemplates' => DiplomaTemplate::listForAdmin($this->companyFilter($request)),
             ], 422);
         }
     }
@@ -134,10 +135,11 @@ final class BadgeTemplateController extends Controller
         }
         $template['skills_tags_csv'] = implode(', ', BadgeTemplate::decodeTags($template['skills_tags'] ?? null));
         return $this->view('badges/template_form', [
-            'pageTitle' => 'Editar template',
-            'template'  => $template,
-            'errors'    => [],
-            'companies' => $this->companiesForSelector(),
+            'pageTitle'        => 'Editar template',
+            'template'         => $template,
+            'errors'           => [],
+            'companies'        => $this->companiesForSelector(),
+            'diplomaTemplates' => DiplomaTemplate::listForAdmin($this->companyFilter($request)),
         ]);
     }
 
@@ -168,23 +170,13 @@ final class BadgeTemplateController extends Controller
                 $data['image_filename'] = $newFilename;
             }
 
-            // Plantilla de certificado opcional: si se sube una nueva, reemplaza
-            // y se va al marcado.
-            $certFile = $request->file('certificate_image');
-            if ($certFile !== null && ($certFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                $imgSvc   = new ImageService();
-                $certName = $imgSvc->processCertificateUpload($certFile);
-                if (!empty($template['certificate_filename'])) {
-                    $imgSvc->deleteCertificate((string) $template['certificate_filename']);
-                }
-                $data['certificate_filename'] = $certName;
-                $data['certificate_config']   = null; // re-marcar con la nueva imagen
-            }
-
             BadgeTemplate::updateById((int) $template['id'], $data);
+
+            // Diploma: ninguno / imagen propia / plantilla guardada (3 opciones).
+            $markUuid = $this->applyCertMode($request, $template);
             Logger::audit('template.updated', Auth::id(), 'badge_template', $uuid, []);
 
-            if (isset($data['certificate_filename'])) {
+            if ($markUuid !== null) {
                 Session::flash('success', 'Template actualizado. Marcá las posiciones del nuevo certificado.');
                 return $this->redirect('/admin/templates/' . $uuid . '/certificate');
             }
@@ -193,12 +185,79 @@ final class BadgeTemplateController extends Controller
         } catch (InvalidArgumentException $e) {
             $template['skills_tags_csv'] = (string) $request->input('skills_tags', '');
             return $this->view('badges/template_form', [
-                'pageTitle' => 'Editar template',
-                'template'  => array_merge($template, $request->all()),
-                'errors'    => [$e->getMessage()],
-                'companies' => $this->companiesForSelector(),
+                'pageTitle'        => 'Editar template',
+                'template'         => array_merge($template, $request->all()),
+                'errors'           => [$e->getMessage()],
+                'companies'        => $this->companiesForSelector(),
+                'diplomaTemplates' => DiplomaTemplate::listForAdmin($this->companyFilter($request)),
             ], 422);
         }
+    }
+
+    /**
+     * Aplica el modo de diploma elegido en el form (cert_mode) a un template
+     * existente. Referencia viva: si se elige una plantilla guardada, se guarda
+     * el vínculo; si se sube imagen propia, se marca esa. Devuelve el uuid a
+     * marcar (modo imagen propia recién subida) o null.
+     *
+     * @param array<string,mixed> $template Fila ACTUAL (para limpiar imagen previa).
+     */
+    private function applyCertMode(Request $request, array $template): ?string
+    {
+        $mode = (string) $request->input('cert_mode', 'none');
+        $id   = (int) $template['id'];
+        $img  = new ImageService();
+        $ownFile = (string) ($template['certificate_filename'] ?? '');
+
+        if ($mode === 'template') {
+            $dtId = (int) $request->input('certificate_template_id', '0');
+            $dt   = $dtId > 0 ? DiplomaTemplate::find($dtId) : null;
+            if ($dt === null || ($dt['company_id'] !== null && !$this->isCompanyAllowed((int) $dt['company_id']))) {
+                throw new InvalidArgumentException('Elegí una plantilla de diploma válida.');
+            }
+            if ($ownFile !== '') {
+                $img->deleteCertificate($ownFile);
+            }
+            BadgeTemplate::updateById($id, [
+                'certificate_template_id' => $dtId,
+                'certificate_filename'    => null,
+                'certificate_config'      => null,
+            ]);
+            return null;
+        }
+
+        if ($mode === 'upload') {
+            $certFile = $request->file('certificate_image');
+            if ($certFile !== null && ($certFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+                $certName = $img->processCertificateUpload($certFile);
+                if ($ownFile !== '') {
+                    $img->deleteCertificate($ownFile);
+                }
+                BadgeTemplate::updateById($id, [
+                    'certificate_template_id' => null,
+                    'certificate_filename'    => $certName,
+                    'certificate_config'      => null,
+                ]);
+                return (string) $template['uuid'];
+            }
+            // "Subir imagen" sin archivo nuevo: si ya tenía imagen propia, se
+            // mantiene tal cual; si venía vinculado, se desvincula.
+            if ($ownFile === '' && !empty($template['certificate_template_id'])) {
+                BadgeTemplate::updateById($id, ['certificate_template_id' => null]);
+            }
+            return null;
+        }
+
+        // 'none' → sin diploma: limpia imagen propia y vínculo.
+        if ($ownFile !== '') {
+            $img->deleteCertificate($ownFile);
+        }
+        BadgeTemplate::updateById($id, [
+            'certificate_template_id' => null,
+            'certificate_filename'    => null,
+            'certificate_config'      => null,
+        ]);
+        return null;
     }
 
     public function archive(Request $request, string $uuid): Response

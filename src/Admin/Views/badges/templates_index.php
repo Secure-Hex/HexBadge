@@ -13,13 +13,14 @@ $showCompany = count($companies) > 1;
 </div>
 
 <?php if ($showCompany): ?>
-    <form method="GET" action="/admin/templates" style="display:flex;gap:.6rem;align-items:end;margin:1rem 0;max-width:360px">
+    <form method="GET" action="/admin/templates" data-live style="display:flex;gap:.6rem;align-items:end;margin:1rem 0;max-width:360px">
         <?= View::renderPartial('layout/company_filter', ['companies' => $companies, 'selected' => $companyFilter]) ?>
         <button type="submit" class="btn">Filtrar</button>
         <?php if ($companyFilter !== null): ?><a class="btn btn-sm" href="/admin/templates">Quitar filtros</a><?php endif; ?>
     </form>
 <?php endif; ?>
 
+<div data-live-results>
 <?php if (empty($templates)): ?>
     <p class="muted">No hay templates todavía. Creá el primero.</p>
 <?php else: ?>
@@ -40,3 +41,4 @@ $showCompany = count($companies) > 1;
         </tbody>
     </table>
 <?php endif; ?>
+</div>

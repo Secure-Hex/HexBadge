@@ -50,5 +50,6 @@ $flashError   = Session::flash('error');
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
     <p style="opacity:.8">&copy; <?= date('Y') ?> SecureHex · securehex.cl</p>
 </footer>
+<script src="/assets/js/search.js" defer></script>
 </body>
 </html>

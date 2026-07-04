@@ -1,5 +1,5 @@
 -- ============================================================
--- HexBadge — Puesta al día de PRODUCCIÓN (migraciones 002 → 008)
+-- HexBadge — Puesta al día de PRODUCCIÓN (migraciones 002 → 013)
 -- ============================================================
 -- Seguro de correr en phpMyAdmin AUNQUE algunas migraciones ya estén
 -- aplicadas: cada cambio se aplica sólo si falta (idempotente). No usa
@@ -205,6 +205,49 @@ SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN reset_token_hash
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN reset_expires DATETIME NULL','DO 0')
   FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='reset_expires');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- ---------- 012 — plantillas de diplomas reutilizables ----------
+
+CREATE TABLE IF NOT EXISTS diploma_templates (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    uuid           CHAR(36) NOT NULL UNIQUE,
+    company_id     INT UNSIGNED NULL,                 -- NULL = global (superadmin)
+    created_by     INT UNSIGNED NULL,
+    name           VARCHAR(150) NOT NULL,
+    image_filename VARCHAR(255) NULL,                 -- imagen base en uploads/certificates/
+    config         JSON NULL,                         -- posiciones/estilos (formato certificate_config)
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_company (company_id),
+    FOREIGN KEY (company_id) REFERENCES companies(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- badge_templates.certificate_template_id (referencia a la plantilla de diploma)
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE badge_templates ADD COLUMN certificate_template_id INT UNSIGNED NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='badge_templates' AND COLUMN_NAME='certificate_template_id');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE badge_templates ADD INDEX idx_cert_template (certificate_template_id)','DO 0')
+  FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='badge_templates' AND INDEX_NAME='idx_cert_template');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- ---------- 013 — un usuario con acceso a varias empresas ----------
+
+CREATE TABLE IF NOT EXISTS user_companies (
+    user_id    INT UNSIGNED NOT NULL,
+    company_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (user_id, company_id),
+    FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfill: cada usuario con empresa primaria entra al pivote (idempotente)
+INSERT IGNORE INTO user_companies (user_id, company_id)
+SELECT id, company_id FROM users WHERE company_id IS NOT NULL;
+
+-- user_invitations.company_ids (set completo de empresas al invitar)
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE user_invitations ADD COLUMN company_ids JSON NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_invitations' AND COLUMN_NAME='company_ids');
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- ============================================================

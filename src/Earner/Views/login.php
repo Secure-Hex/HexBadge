@@ -19,7 +19,6 @@ $reset = $reset ?? false;
     <?php endif; ?>
 
     <form method="POST" action="/login" autocomplete="off">
-        <?= CSRF::field() ?>
         <label for="email">Email</label>
         <input type="email" id="email" name="email" value="<?= e($oldEmail) ?>" required autofocus>
         <label for="password">Contraseña</label>

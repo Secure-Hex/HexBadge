@@ -8,30 +8,55 @@
  * @var int                            $perPage
  * @var array<int,array<string,mixed>> $companies
  * @var int|null                       $companyFilter
+ * @var string                         $sort
+ * @var string                         $dir
  */
 use HexBadge\Core\View;
 $showCompany = count($companies) > 1;
-?>
-<h1>Receptores</h1>
 
-<form method="GET" action="/admin/earners" style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;max-width:800px;margin-bottom:1rem">
+// Cabecera ordenable: recarga con sort/dir (el filtrado en vivo conserva el
+// orden vía los hidden del formulario). Alterna asc/desc al reclicar.
+$baseParams = [
+    'q'       => $search,
+    'company' => $showCompany ? ($companyFilter ?? '') : '',
+    'per'     => $perPage,
+];
+$sortLink = function (string $key, string $label) use ($baseParams, $sort, $dir): string {
+    $nextDir = ($sort === $key && $dir === 'asc') ? 'desc' : 'asc';
+    $arrow   = $sort === $key ? ($dir === 'asc' ? ' ▲' : ' ▼') : '';
+    $qs = http_build_query(array_filter(
+        $baseParams + ['sort' => $key, 'dir' => $nextDir],
+        static fn ($v): bool => $v !== '' && $v !== null
+    ));
+    return '<a href="/admin/earners?' . e($qs) . '">' . e($label) . $arrow . '</a>';
+};
+?>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+    <h1>Receptores</h1>
+    <a class="btn" href="<?= e('/admin/earners/export' . ($showCompany && $companyFilter !== null ? '?company=' . (int) $companyFilter : '')) ?>">Descargar CSV</a>
+</div>
+
+<form method="GET" action="/admin/earners" data-live style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;max-width:800px;margin-bottom:1rem">
     <div style="flex:1;min-width:200px">
         <label for="q">Buscar por nombre o email</label>
         <input type="search" id="q" name="q" value="<?= e($search) ?>" placeholder="Ej: ana@correo.com o Pérez">
     </div>
     <?= View::renderPartial('layout/company_filter', ['companies' => $companies, 'selected' => $companyFilter]) ?>
     <?= View::renderPartial('layout/per_page_select', ['perPage' => $perPage]) ?>
+    <input type="hidden" name="sort" value="<?= e($sort) ?>">
+    <input type="hidden" name="dir" value="<?= e($dir) ?>">
     <button type="submit" class="btn">Buscar</button>
     <?php if ($search !== '' || ($showCompany && $companyFilter !== null)): ?>
         <a class="btn btn-sm" href="<?= e('/admin/earners' . ((int) $perPage !== 25 ? '?per=' . (int) $perPage : '')) ?>">Quitar filtros</a>
     <?php endif; ?>
 </form>
 
+<div data-live-results>
 <?php if (empty($earners)): ?>
     <p class="muted"><?= $search !== '' ? 'No hay receptores que coincidan con la búsqueda.' : 'Aún no hay receptores.' ?></p>
 <?php else: ?>
     <table class="table">
-        <thead><tr><th>Nombre</th><th>Email</th><th>Badges</th><th>Verificado</th></tr></thead>
+        <thead><tr><th><?= $sortLink('nombre', 'Nombre') ?></th><th><?= $sortLink('email', 'Email') ?></th><th><?= $sortLink('badges', 'Badges') ?></th><th><?= $sortLink('verificado', 'Verificado') ?></th></tr></thead>
         <tbody>
         <?php foreach ($earners as $e): ?>
             <tr>
@@ -48,6 +73,7 @@ $showCompany = count($companies) > 1;
         'page'       => $page,
         'totalPages' => $totalPages,
         'total'      => $total,
-        'params'     => ['q' => $search, 'company' => $showCompany ? ($companyFilter ?? '') : '', 'per' => $perPage],
+        'params'     => ['q' => $search, 'company' => $showCompany ? ($companyFilter ?? '') : '', 'per' => $perPage, 'sort' => $sort, 'dir' => $dir],
     ]) ?>
 <?php endif; ?>
+</div>

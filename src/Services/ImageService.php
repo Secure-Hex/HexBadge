@@ -20,6 +20,7 @@ final class ImageService
     private const UPLOAD_DIR   = BASE_PATH . '/apps/earner/public/uploads/badges/';
     private const PROFILE_DIR  = BASE_PATH . '/apps/earner/public/uploads/profiles/';
     private const CERT_DIR     = BASE_PATH . '/apps/earner/public/uploads/certificates/';
+    private const LOGO_DIR     = BASE_PATH . '/apps/earner/public/uploads/logos/';
 
     private int $maxBytes;
 
@@ -57,10 +58,32 @@ final class ImageService
         ], 5 * 1024 * 1024, false);
     }
 
+    /**
+     * Procesa el logo de una empresa (PNG/JPG/SVG sanitizado). Va a uploads/logos/.
+     *
+     * @param array<string,mixed> $file
+     */
+    public function processLogo(array $file): string
+    {
+        return $this->persist($file, self::LOGO_DIR, [
+            'image/png'     => 'png',
+            'image/jpeg'    => 'jpg',
+            'image/svg+xml' => 'svg',
+        ], $this->maxBytes, true);
+    }
+
     public function delete(string $filename): void
     {
         // Evitar path traversal: solo el basename.
         $path = self::UPLOAD_DIR . basename($filename);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    public function deleteLogo(string $filename): void
+    {
+        $path = self::LOGO_DIR . basename($filename);
         if (is_file($path)) {
             @unlink($path);
         }

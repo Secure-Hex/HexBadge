@@ -25,8 +25,6 @@ $reset    = $reset ?? false;
     <?php endif; ?>
 
     <form method="POST" action="/login" autocomplete="off">
-        <?= \HexBadge\Core\CSRF::field() ?>
-
         <label for="email">Email</label>
         <input type="email" id="email" name="email" value="<?= e($oldEmail) ?>"
                required maxlength="255" autofocus>

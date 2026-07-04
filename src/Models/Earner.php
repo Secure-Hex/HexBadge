@@ -59,19 +59,99 @@ final class Earner extends Model
     }
 
     /**
+     * Búsqueda pública de personas por nombre o email. Solo devuelve a quienes
+     * tienen al menos un badge aceptado (presencia pública real). Para mostrar
+     * en el directorio: uuid, nombre y foto. No expone el email.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function searchPublic(string $query, int $limit = 40): array
+    {
+        $query = trim($query);
+        if ($query === '') {
+            return [];
+        }
+        $like  = '%' . $query . '%';
+        $limit = max(1, min(100, $limit));
+        return static::db()->fetchAll(
+            "SELECT e.uuid, e.display_name, e.avatar_filename
+             FROM earners e
+             WHERE (e.display_name LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ? OR e.email LIKE ?)
+               AND EXISTS (SELECT 1 FROM issued_badges ib WHERE ib.earner_id = e.id AND ib.status = 'accepted')
+             ORDER BY e.display_name ASC LIMIT {$limit}",
+            [$like, $like, $like, $like]
+        );
+    }
+
+    /**
      * Listado paginado con búsqueda opcional por nombre/email.
      *
      * @return array<int,array<string,mixed>>
      */
-    public static function listForAdmin(string $search = '', ?int $companyId = null, int $limit = 25, int $offset = 0): array
+    public static function listForAdmin(string $search = '', ?int $companyId = null, int $limit = 25, int $offset = 0, string $sort = 'reciente', string $dir = 'desc'): array
     {
         [$where, $params] = self::searchWhere($search, $companyId);
         $limit  = max(1, $limit);
         $offset = max(0, $offset);
+        $orderBy = self::orderBy($sort, $dir);
         return static::db()->fetchAll(
             'SELECT e.*,
                     (SELECT COUNT(*) FROM issued_badges ib WHERE ib.earner_id = e.id) AS badge_count
-             FROM earners e' . $where . " ORDER BY e.created_at DESC LIMIT {$limit} OFFSET {$offset}",
+             FROM earners e' . $where . " ORDER BY {$orderBy} LIMIT {$limit} OFFSET {$offset}",
+            $params
+        );
+    }
+
+    /**
+     * Traduce (sort, dir) del request a un ORDER BY seguro por whitelist (nunca
+     * input crudo → sin SQL injection). Desempate por e.id para orden estable.
+     */
+    private static function orderBy(string $sort, string $dir): string
+    {
+        $cols = [
+            'nombre'     => 'e.display_name',
+            'email'      => 'e.email',
+            'badges'     => 'badge_count',
+            'verificado' => 'e.is_verified',
+            'reciente'   => 'e.created_at',
+        ];
+        $col = $cols[$sort] ?? 'e.created_at';
+        $dir = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
+        return "{$col} {$dir}, e.id DESC";
+    }
+
+    /**
+     * Volcado completo para exportar: una fila por receptor con sus badges
+     * agregados. Superadmin (companyId null) ve a todos; un sub-admin solo a
+     * quienes tienen algún badge de su empresa (y solo esos badges).
+     *
+     * ponytail: GROUP_CONCAT trunca a group_concat_max_len (1024 por defecto).
+     * Subir esa variable de sesión si algún receptor tiene decenas de badges.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function exportForAdmin(?int $companyId = null): array
+    {
+        $btOn   = 'bt.id = ib.badge_template_id';
+        $where  = '';
+        $params = [];
+        if ($companyId !== null) {
+            $btOn    .= ' AND bt.company_id = ?';
+            $params[] = $companyId;                         // param del JOIN va primero
+            $where    = ' WHERE EXISTS (SELECT 1 FROM issued_badges ib2
+                            JOIN badge_templates bt2 ON bt2.id = ib2.badge_template_id
+                            WHERE ib2.earner_id = e.id AND bt2.company_id = ?)';
+            $params[] = $companyId;
+        }
+        return static::db()->fetchAll(
+            "SELECT e.display_name, e.first_name, e.last_name, e.email, e.is_verified,
+                    GROUP_CONCAT(DISTINCT bt.name ORDER BY bt.name SEPARATOR '; ') AS badges
+             FROM earners e
+             LEFT JOIN issued_badges ib ON ib.earner_id = e.id
+             LEFT JOIN badge_templates bt ON {$btOn}
+             {$where}
+             GROUP BY e.id
+             ORDER BY e.display_name ASC",
             $params
         );
     }

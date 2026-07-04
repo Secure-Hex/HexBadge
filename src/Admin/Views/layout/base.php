@@ -56,5 +56,7 @@ $flashError   = Session::flash('error');
     </div>
 </div>
 <?php endif; ?>
+<script src="/assets/js/filters.js" defer></script>
+<script src="/assets/js/company-multiselect.js" defer></script>
 </body>
 </html>
