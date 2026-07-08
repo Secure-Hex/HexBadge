@@ -81,4 +81,4 @@ $logo = static fn (): string => View::renderPartial('layout/securelogo');
   </section>
 </div>
 
-<script src="/assets/js/landing.js"></script>
+<script src="<?= asset('js/landing.js') ?>"></script>

@@ -79,7 +79,7 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
     <meta name="twitter:description" content="<?= e($ogDescription) ?>">
     <meta name="twitter:image" content="<?= e($imageUrl) ?>">
 
-    <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <style>
     .share-block{margin-top:1.1rem}
     .share-block h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 .55rem}

@@ -135,4 +135,4 @@ $textRow = static function (string $key, string $label, bool $optional, string $
 </form>
 <?php endif; ?>
 
-<script src="/assets/js/cert-marker.js?v=2"></script>
+<script src="<?= asset('js/cert-marker.js') ?>"></script>

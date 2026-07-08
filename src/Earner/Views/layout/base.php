@@ -19,7 +19,7 @@ $flashError   = Session::flash('error');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ? $pageTitle . ' — ' . $appName : $appName) ?></title>
-    <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>
 <header class="public-header">
@@ -50,6 +50,6 @@ $flashError   = Session::flash('error');
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
     <p style="opacity:.8">&copy; <?= date('Y') ?> SecureHex · securehex.cl</p>
 </footer>
-<script src="/assets/js/search.js" defer></script>
+<script src="<?= asset('js/search.js') ?>" defer></script>
 </body>
 </html>

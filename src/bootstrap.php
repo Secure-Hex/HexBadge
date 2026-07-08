@@ -206,7 +206,9 @@ spl_autoload_register(static function (string $class): void {
 // Manejo de errores según entorno
 // ------------------------------------------------------------------
 
-if (config('app.env') === 'development' && config('app.debug')) {
+$appDebug = config('app.env') === 'development' && (bool) config('app.debug');
+
+if ($appDebug) {
     error_reporting(E_ALL);
     ini_set('display_errors', '1');
 } else {
@@ -215,3 +217,74 @@ if (config('app.env') === 'development' && config('app.debug')) {
 }
 ini_set('log_errors', '1');
 ini_set('error_log', BASE_PATH . '/storage/logs/php_errors.log');
+
+/**
+ * Logea el error y muestra una respuesta 500 en vez de una pantalla en blanco.
+ * En debug imprime el detalle; en producción, una página genérica con un id de
+ * correlación (el mensaje real solo queda en storage/logs/app.log).
+ */
+function hexbadge_render_error(\Throwable $e, bool $debug): void
+{
+    $ref = bin2hex(random_bytes(4));
+    \HexBadge\Core\Logger::app('error', sprintf(
+        '[%s] %s: %s en %s:%d',
+        $ref,
+        get_class($e),
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()
+    ));
+
+    if (headers_sent()) {
+        return; // La salida ya empezó: no podemos reescribir el status/cuerpo.
+    }
+    http_response_code(500);
+    header('Content-Type: text/html; charset=UTF-8');
+
+    if ($debug) {
+        echo '<pre style="padding:1rem;font:14px/1.5 monospace;white-space:pre-wrap">'
+            . e((string) $e) . '</pre>';
+        return;
+    }
+    echo '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>Error del servidor</title>'
+        . '<style>body{font-family:system-ui,sans-serif;background:#f6f7f9;color:#1f2430;'
+        . 'display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}'
+        . '.box{max-width:28rem;padding:2rem;text-align:center}h1{font-size:3rem;margin:0}'
+        . 'p{color:#5b6472}code{font-size:.85em;color:#8a93a2}</style></head><body>'
+        . '<div class="box"><h1>500</h1><p>Ocurrió un error inesperado. '
+        . 'Ya quedó registrado y lo estamos revisando.</p>'
+        . '<p><code>Ref: ' . e($ref) . '</code></p></div></body></html>';
+}
+
+set_exception_handler(static function (\Throwable $e) use ($appDebug): void {
+    hexbadge_render_error($e, $appDebug);
+});
+
+// Fatals (E_ERROR, parse, memoria agotada) no pasan por el exception handler.
+register_shutdown_function(static function () use ($appDebug): void {
+    $err = error_get_last();
+    if ($err === null
+        || ($err['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR)) === 0) {
+        return;
+    }
+    hexbadge_render_error(
+        new \ErrorException($err['message'], 0, $err['type'], $err['file'], $err['line']),
+        $appDebug
+    );
+});
+
+/**
+ * Ruta de un asset estático con cache-busting por mtime (?v=…). Evita servir
+ * CSS/JS cacheado viejo tras un deploy. Devuelve la ruta sin versión si el
+ * archivo no existe (p. ej. en CLI, donde no hay DOCUMENT_ROOT).
+ */
+function asset(string $path): string
+{
+    $path = ltrim($path, '/');
+    $rel  = '/assets/' . $path;
+    $file = ($_SERVER['DOCUMENT_ROOT'] ?? '') . '/assets/' . $path;
+
+    return is_file($file) ? $rel . '?v=' . filemtime($file) : $rel;
+}

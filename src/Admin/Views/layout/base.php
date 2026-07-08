@@ -21,7 +21,7 @@ $flashError   = Session::flash('error');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ? $pageTitle . ' — ' . $appName : $appName) ?></title>
-    <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>
 <?php if (!empty($currentUser)): ?>
@@ -56,7 +56,7 @@ $flashError   = Session::flash('error');
     </div>
 </div>
 <?php endif; ?>
-<script src="/assets/js/filters.js" defer></script>
-<script src="/assets/js/company-multiselect.js" defer></script>
+<script src="<?= asset('js/filters.js') ?>" defer></script>
+<script src="<?= asset('js/company-multiselect.js') ?>" defer></script>
 </body>
 </html>

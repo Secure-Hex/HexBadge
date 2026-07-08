@@ -15,7 +15,7 @@ $v = static fn (string $k, string $default = ''): string => e((string) ($old[$k]
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Instalación — <?= e($appName) ?></title>
-    <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body class="auth-wrap" style="place-items:start center">
 <div class="auth-card" style="max-width:560px;margin-top:2.5rem">
