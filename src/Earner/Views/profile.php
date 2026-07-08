@@ -7,7 +7,9 @@ use HexBadge\Core\CSRF;
 
 $e   = $earner;
 $val = static fn (string $k): string => e((string) ($e[$k] ?? ''));
-$initial = strtoupper(mb_substr((string) ($e['display_name'] ?? ($e['first_name'] ?? '?')), 0, 1));
+$initial  = strtoupper(mb_substr((string) ($e['display_name'] ?? ($e['first_name'] ?? '?')), 0, 1));
+$fullName = trim((string) ($e['first_name'] ?? '') . ' ' . (string) ($e['last_name'] ?? ''));
+$fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu nombre');
 ?>
 <div class="pf-wrap">
     <div class="pf-head">
@@ -19,33 +21,38 @@ $initial = strtoupper(mb_substr((string) ($e['display_name'] ?? ($e['first_name'
         <div class="alert alert-error"><?= e($err) ?></div>
     <?php endforeach; ?>
 
-    <form method="POST" action="/me/profile" enctype="multipart/form-data" class="card pf-card">
+    <form method="POST" action="/me/profile" enctype="multipart/form-data" class="pf-layout">
         <?= CSRF::field() ?>
 
-        <!-- Vista previa tipo perfil -->
-        <div class="pf-preview">
-            <div class="pf-preview-cover"<?php if (!empty($e['cover_filename'])): ?> style="background-image:url('<?= e(profile_image_url((string) $e['cover_filename'])) ?>')"<?php endif; ?>></div>
-            <div class="pf-preview-avatar">
-                <?php if (!empty($e['avatar_filename'])): ?>
-                    <img src="<?= e(profile_image_url((string) $e['avatar_filename'])) ?>" alt="">
-                <?php else: ?>
-                    <span><?= e($initial) ?></span>
-                <?php endif; ?>
+        <!-- Columna lateral: vista previa + carga de fotos -->
+        <aside class="pf-aside">
+            <div class="card pf-preview-card">
+                <div class="pf-preview">
+                    <div class="pf-preview-cover"<?php if (!empty($e['cover_filename'])): ?> style="background-image:url('<?= e(profile_image_url((string) $e['cover_filename'])) ?>')"<?php endif; ?>></div>
+                    <div class="pf-preview-avatar">
+                        <?php if (!empty($e['avatar_filename'])): ?>
+                            <img src="<?= e(profile_image_url((string) $e['avatar_filename'])) ?>" alt="">
+                        <?php else: ?>
+                            <span><?= e($initial) ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="pf-preview-id">
+                    <strong><?= e($fullName) ?></strong>
+                    <span class="muted"><?= $val('email') ?></span>
+                </div>
             </div>
-        </div>
 
-        <!-- Fotos -->
-        <section class="pf-section">
-            <h2>Fotos</h2>
-            <div class="field-grid">
-                <div>
+            <div class="card pf-photos">
+                <h2 class="pf-card-title">Fotos</h2>
+                <div class="pf-photo-field">
                     <label for="avatar">Foto de perfil <span class="muted">· PNG o JPG</span></label>
                     <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg">
                     <?php if (!empty($e['avatar_filename'])): ?>
                         <label class="remove-check"><input type="checkbox" name="remove_avatar" value="1"> Quitar foto actual</label>
                     <?php endif; ?>
                 </div>
-                <div>
+                <div class="pf-photo-field">
                     <label for="cover">Foto de portada <span class="muted">· PNG o JPG</span></label>
                     <input type="file" id="cover" name="cover" accept="image/png,image/jpeg">
                     <?php if (!empty($e['cover_filename'])): ?>
@@ -53,45 +60,51 @@ $initial = strtoupper(mb_substr((string) ($e['display_name'] ?? ($e['first_name'
                     <?php endif; ?>
                 </div>
             </div>
-        </section>
+        </aside>
 
-        <!-- Datos personales -->
-        <section class="pf-section">
-            <h2>Datos personales</h2>
-            <label for="email">Email</label>
-            <input type="email" id="email" value="<?= $val('email') ?>" disabled>
-            <div class="field-grid">
-                <div>
-                    <label for="first_name">Nombre</label>
-                    <input type="text" id="first_name" name="first_name" maxlength="100" required value="<?= $val('first_name') ?>">
-                </div>
-                <div>
-                    <label for="last_name">Apellido</label>
-                    <input type="text" id="last_name" name="last_name" maxlength="100" required value="<?= $val('last_name') ?>">
+        <!-- Columna principal: datos en tarjetas -->
+        <div class="pf-main">
+            <div class="card pf-fields">
+                <h2 class="pf-card-title">Datos personales</h2>
+                <label for="email">Email</label>
+                <input type="email" id="email" value="<?= $val('email') ?>" disabled>
+                <div class="field-grid">
+                    <div>
+                        <label for="first_name">Nombre</label>
+                        <input type="text" id="first_name" name="first_name" maxlength="100" required value="<?= $val('first_name') ?>">
+                    </div>
+                    <div>
+                        <label for="last_name">Apellido</label>
+                        <input type="text" id="last_name" name="last_name" maxlength="100" required value="<?= $val('last_name') ?>">
+                    </div>
                 </div>
             </div>
-        </section>
 
-        <!-- Bio -->
-        <section class="pf-section">
-            <h2>Sobre vos</h2>
-            <label for="profile_bio">Bio <span class="muted">· opcional</span></label>
-            <textarea id="profile_bio" name="profile_bio" rows="4" maxlength="1000" placeholder="Contá en qué te especializás…"><?= $val('profile_bio') ?></textarea>
-        </section>
+            <div class="card pf-fields">
+                <h2 class="pf-card-title">Sobre vos</h2>
+                <label for="profile_bio">Bio <span class="muted">· opcional</span></label>
+                <textarea id="profile_bio" name="profile_bio" rows="5" maxlength="1000" placeholder="Contá en qué te especializás…"><?= $val('profile_bio') ?></textarea>
+            </div>
 
-        <!-- Redes y enlaces -->
-        <section class="pf-section">
-            <h2>Redes y enlaces</h2>
-            <?php foreach (social_networks() as $net): ?>
-                <label for="<?= e($net['key']) ?>"><?= e($net['label']) ?></label>
-                <div class="input-icon" style="--brand:<?= e($net['brand']) ?>">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $net['icon'] ?>"/></svg>
-                    <input type="url" id="<?= e($net['key']) ?>" name="<?= e($net['key']) ?>" placeholder="https://…" value="<?= $val($net['key']) ?>">
+            <div class="card pf-fields pf-card--wide">
+                <h2 class="pf-card-title">Redes y enlaces</h2>
+                <div class="pf-social">
+                    <?php foreach (social_networks() as $net): ?>
+                        <div class="pf-social-item">
+                            <label for="<?= e($net['key']) ?>"><?= e($net['label']) ?></label>
+                            <div class="input-icon" style="--brand:<?= e($net['brand']) ?>">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $net['icon'] ?>"/></svg>
+                                <input type="url" id="<?= e($net['key']) ?>" name="<?= e($net['key']) ?>" placeholder="https://…" value="<?= $val($net['key']) ?>">
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
-        </section>
+            </div>
 
-        <button type="submit" class="btn btn-primary btn-block">Guardar perfil</button>
+            <div class="pf-actions pf-card--wide">
+                <button type="submit" class="btn btn-primary">Guardar perfil</button>
+            </div>
+        </div>
     </form>
 </div>
 <script src="<?= asset('js/profile-preview.js') ?>" defer></script>
