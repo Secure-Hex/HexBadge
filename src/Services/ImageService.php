@@ -132,13 +132,50 @@ final class ImageService
         }
 
         // SVG: sanitizar tras mover (ya en disco bajo nuestro control).
+        // PNG/JPG: convertir a WebP (menor peso). Si falla, se conserva el original.
         if ($sanitizeSvg && $mime === 'image/svg+xml') {
             $this->sanitizeSvg($dest);
+        } elseif ($mime === 'image/png' || $mime === 'image/jpeg') {
+            $filename = $this->toWebp($dest, $mime) ?? $filename;
         }
 
         // 0644: imágenes públicas; en cPanel el contenido estático lo sirve otro user.
-        @chmod($dest, 0644);
+        @chmod($dir . $filename, 0644);
         return $filename;
+    }
+
+    /**
+     * Convierte un PNG/JPG ya en disco a WebP, borra el original y devuelve el
+     * nuevo nombre. Devuelve null si GD no soporta WebP o la imagen es inválida
+     * (en ese caso el llamador conserva el archivo original).
+     */
+    private function toWebp(string $srcPath, string $mime): ?string
+    {
+        if (!function_exists('imagewebp')) {
+            return null; // GD compilado sin soporte WebP.
+        }
+        $img = $mime === 'image/png'
+            ? @imagecreatefrompng($srcPath)
+            : @imagecreatefromjpeg($srcPath);
+        if (!$img instanceof \GdImage) {
+            return null;
+        }
+        // Preservar transparencia (PNG con canal alfa).
+        imagepalettetotruecolor($img);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+
+        $webpPath = preg_replace('/\.\w+$/', '.webp', $srcPath);
+        $quality  = max(1, min(100, (int) config('upload.webp_quality', 82)));
+        $ok       = imagewebp($img, $webpPath, $quality);
+        imagedestroy($img);
+
+        if (!$ok) {
+            @unlink($webpPath);
+            return null;
+        }
+        @unlink($srcPath); // Original ya convertido.
+        return basename($webpPath);
     }
 
     /**
