@@ -94,3 +94,4 @@ $initial = strtoupper(mb_substr((string) ($e['display_name'] ?? ($e['first_name'
         <button type="submit" class="btn btn-primary btn-block">Guardar perfil</button>
     </form>
 </div>
+<script src="/assets/js/profile-preview.js" defer></script>
