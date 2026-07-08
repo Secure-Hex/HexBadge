@@ -76,6 +76,7 @@ $item = static function (string $href, string $label, string $key) use ($active,
 
     <div class="sidebar-foot">
         Una herramienta de <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a>
-        <div style="opacity:.6;margin-top:.2rem">HexBadge · v1.0</div>
+        <div style="opacity:.6;margin-top:.2rem">HexBadge · v<?= e((string) config('app.version', '1.0')) ?></div>
+        <div style="margin-top:.35rem"><?php require BASE_PATH . '/src/Shared/about.php'; ?></div>
     </div>
 </aside>

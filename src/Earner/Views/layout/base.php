@@ -49,6 +49,7 @@ $flashError   = Session::flash('error');
     <p><strong><?= e($appName) ?></strong> — una herramienta de
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
     <p style="opacity:.8">&copy; <?= date('Y') ?> SecureHex · securehex.cl</p>
+    <?php require BASE_PATH . '/src/Shared/about.php'; ?>
 </footer>
 <script src="<?= asset('js/search.js') ?>" defer></script>
 </body>
