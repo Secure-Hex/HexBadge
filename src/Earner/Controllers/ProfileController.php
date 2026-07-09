@@ -61,9 +61,10 @@ final class ProfileController extends EarnerBaseController
         }
         CSRF::check($request);
 
-        $v   = new Validator();
-        $img = new ImageService();
+        $v = new Validator();
         try {
+            // Solo textos: las fotos se suben/eliminan al instante en sus
+            // propios endpoints (uploadPhoto/removePhoto).
             $updates = [
                 'first_name'    => $v->name((string) $request->input('first_name', '')),
                 'last_name'     => $v->name((string) $request->input('last_name', '')),
@@ -74,9 +75,6 @@ final class ProfileController extends EarnerBaseController
                 'x_url'         => $v->url((string) $request->input('x_url', ''), false),
                 'github_url'    => $v->url((string) $request->input('github_url', ''), false),
             ];
-            // Subida/eliminación de foto de perfil y portada.
-            $this->applyImage($request, $img, $earner, $updates, 'avatar', 'avatar_filename');
-            $this->applyImage($request, $img, $earner, $updates, 'cover', 'cover_filename');
         } catch (\InvalidArgumentException $e) {
             return $this->view('profile', ['pageTitle' => 'Mi perfil', 'earner' => array_merge($earner, $request->all()), 'errors' => [$e->getMessage()]], 422);
         }
@@ -114,29 +112,43 @@ final class ProfileController extends EarnerBaseController
     }
 
     /**
-     * Aplica al array de updates la subida de una imagen (campo file $field) o
-     * su eliminación (checkbox remove_{$field}), reemplazando la anterior.
-     * ponytail: si una segunda imagen falla la validación, la primera ya
-     * guardada queda huérfana en disco — inofensiva (no referenciada).
-     *
-     * @param array<string,mixed> $earner
-     * @param array<string,mixed> $updates
+     * POST /me/profile/photo/upload — sube y guarda de inmediato la foto de
+     * perfil o portada (field=avatar|cover), reemplazando la anterior.
      */
-    private function applyImage(Request $request, ImageService $img, array $earner, array &$updates, string $field, string $column): void
+    public function uploadPhoto(Request $request): Response
     {
-        $file = $request->file($field);
-        $old  = (string) ($earner[$column] ?? '');
-        if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-            $updates[$column] = $img->processProfileImage($file);
-            if ($old !== '') {
-                $img->deleteProfile($old);
-            }
-        } elseif ($request->input('remove_' . $field) === '1') {
-            if ($old !== '') {
-                $img->deleteProfile($old);
-            }
-            $updates[$column] = null;
+        $earner = EarnerAuth::user();
+        if ($earner === null) {
+            return Response::redirect('/login');
         }
+        CSRF::check($request);
+
+        $field  = (string) $request->input('field', '');
+        $column = ['avatar' => 'avatar_filename', 'cover' => 'cover_filename'][$field] ?? null;
+        if ($column === null) {
+            return Response::redirect('/me/profile');
+        }
+
+        $file = $request->file($field);
+        if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return Response::redirect('/me/profile');
+        }
+
+        $img = new ImageService();
+        try {
+            $new = $img->processProfileImage($file);
+        } catch (\InvalidArgumentException $e) {
+            Session::flash('error', $e->getMessage());
+            return Response::redirect('/me/profile');
+        }
+
+        $old = (string) ($earner[$column] ?? '');
+        Earner::updateById((int) $earner['id'], [$column => $new]);
+        if ($old !== '') {
+            $img->deleteProfile($old);
+        }
+        Session::flash('success', $field === 'avatar' ? 'Foto de perfil actualizada.' : 'Foto de portada actualizada.');
+        return Response::redirect('/me/profile');
     }
 
     /**

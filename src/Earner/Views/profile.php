@@ -21,7 +21,7 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
         <div class="alert alert-error"><?= e($err) ?></div>
     <?php endforeach; ?>
 
-    <form method="POST" action="/me/profile" enctype="multipart/form-data" class="pf-layout">
+    <form method="POST" action="/me/profile" class="pf-layout">
         <?= CSRF::field() ?>
 
         <!-- Columna lateral: vista previa + carga de fotos -->
@@ -47,7 +47,7 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                 <h2 class="pf-card-title">Fotos</h2>
                 <div class="pf-photo-field">
                     <span class="pf-photo-label">Foto de perfil</span>
-                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg" class="file-input-hidden">
+                    <input type="file" id="avatar" name="avatar" form="upload-avatar" accept="image/png,image/jpeg" class="file-input-hidden">
                     <label class="file-drop" for="avatar">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
                         <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
@@ -61,7 +61,7 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                 </div>
                 <div class="pf-photo-field">
                     <span class="pf-photo-label">Foto de portada</span>
-                    <input type="file" id="cover" name="cover" accept="image/png,image/jpeg" class="file-input-hidden">
+                    <input type="file" id="cover" name="cover" form="upload-cover" accept="image/png,image/jpeg" class="file-input-hidden">
                     <label class="file-drop" for="cover">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
                         <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
@@ -119,6 +119,14 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                 <button type="submit" class="btn btn-primary">Guardar perfil</button>
             </div>
         </div>
+    </form>
+
+    <!-- Subida inmediata de fotos (el input vive en la tarjeta vía form=) -->
+    <form id="upload-avatar" method="POST" action="/me/profile/photo/upload" enctype="multipart/form-data" class="pf-hidden-form">
+        <?= CSRF::field() ?><input type="hidden" name="field" value="avatar">
+    </form>
+    <form id="upload-cover" method="POST" action="/me/profile/photo/upload" enctype="multipart/form-data" class="pf-hidden-form">
+        <?= CSRF::field() ?><input type="hidden" name="field" value="cover">
     </form>
 
     <?php if (!empty($e['avatar_filename'])): ?>

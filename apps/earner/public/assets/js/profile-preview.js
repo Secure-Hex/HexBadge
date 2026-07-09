@@ -1,46 +1,26 @@
-// Previsualización instantánea de la foto de perfil y de portada al elegir el
-// archivo, antes de guardar. Usa data: URL (FileReader) porque la CSP de
-// img-src permite 'self' y data:, pero no blob:.
+// Auto-guardado de la foto de perfil/portada: al elegir el archivo se envía su
+// formulario de subida al instante, sin tocar "Guardar perfil" (que solo guarda
+// los textos). El input vive en la tarjeta pero pertenece al form de subida vía
+// el atributo form=. La página recarga mostrando ya la foto guardada.
 (function () {
     'use strict';
 
-    // Muestra el nombre del archivo elegido en su botón .file-drop.
-    function showFilename(inputId, name) {
-        var label = document.querySelector('.file-drop[for="' + inputId + '"]');
-        if (!label) return;
-        var text = label.querySelector('.file-drop-text');
-        if (text) text.textContent = name;
-        label.classList.add('has-file');
-    }
-
-    function onPick(inputId, apply) {
+    function autoUpload(inputId, formId) {
         var input = document.getElementById(inputId);
-        if (!input) return;
+        var form  = document.getElementById(formId);
+        if (!input || !form) return;
         input.addEventListener('change', function () {
-            var file = input.files && input.files[0];
-            if (!file || file.type.indexOf('image/') !== 0) return;
-            showFilename(inputId, file.name);
-            var reader = new FileReader();
-            reader.onload = function () { apply(reader.result); };
-            reader.readAsDataURL(file);
+            if (!input.files || !input.files[0]) return;
+            var drop = document.querySelector('.file-drop[for="' + inputId + '"]');
+            if (drop) {
+                drop.classList.add('is-loading');
+                var text = drop.querySelector('.file-drop-text');
+                if (text) text.textContent = 'Subiendo…';
+            }
+            form.submit();
         });
     }
 
-    onPick('avatar', function (url) {
-        var box = document.querySelector('.pf-preview-avatar');
-        if (!box) return;
-        var img = box.querySelector('img');
-        if (!img) {                 // aún muestra la inicial: reemplazar por <img>
-            box.innerHTML = '';
-            img = document.createElement('img');
-            img.alt = '';
-            box.appendChild(img);
-        }
-        img.src = url;
-    });
-
-    onPick('cover', function (url) {
-        var box = document.querySelector('.pf-preview-cover');
-        if (box) box.style.backgroundImage = "url('" + url + "')";
-    });
+    autoUpload('avatar', 'upload-avatar');
+    autoUpload('cover', 'upload-cover');
 })();

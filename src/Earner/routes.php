@@ -58,6 +58,7 @@ $router->get('/buscar', [DirectoryController::class, 'search']);
 $router->get('/me', [ProfileController::class, 'me']);
 $router->get('/me/profile', [ProfileController::class, 'editProfile']);
 $router->post('/me/profile', [ProfileController::class, 'saveProfile']);
+$router->post('/me/profile/photo/upload', [ProfileController::class, 'uploadPhoto']);
 $router->post('/me/profile/photo/delete', [ProfileController::class, 'removePhoto']);
 
 // Decidir sobre un badge pendiente (dueño autenticado)
