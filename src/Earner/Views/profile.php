@@ -46,15 +46,23 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
             <div class="card pf-photos">
                 <h2 class="pf-card-title">Fotos</h2>
                 <div class="pf-photo-field">
-                    <label for="avatar">Foto de perfil <span class="muted">· PNG o JPG</span></label>
-                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg">
+                    <span class="pf-photo-label">Foto de perfil</span>
+                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg" class="file-input-hidden">
+                    <label class="file-drop" for="avatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                        <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
+                    </label>
                     <?php if (!empty($e['avatar_filename'])): ?>
                         <label class="remove-check"><input type="checkbox" name="remove_avatar" value="1"> Quitar foto actual</label>
                     <?php endif; ?>
                 </div>
                 <div class="pf-photo-field">
-                    <label for="cover">Foto de portada <span class="muted">· PNG o JPG</span></label>
-                    <input type="file" id="cover" name="cover" accept="image/png,image/jpeg">
+                    <span class="pf-photo-label">Foto de portada</span>
+                    <input type="file" id="cover" name="cover" accept="image/png,image/jpeg" class="file-input-hidden">
+                    <label class="file-drop" for="cover">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                        <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
+                    </label>
                     <?php if (!empty($e['cover_filename'])): ?>
                         <label class="remove-check"><input type="checkbox" name="remove_cover" value="1"> Quitar portada actual</label>
                     <?php endif; ?>

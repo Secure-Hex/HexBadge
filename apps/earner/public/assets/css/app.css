@@ -453,7 +453,16 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .pf-preview-id span{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Fotos */
-.pf-photo-field+.pf-photo-field{margin-top:1.1rem}
+.pf-photo-field+.pf-photo-field{margin-top:1.25rem}
+.pf-photo-label{display:block;font-size:.86rem;font-weight:600;color:var(--text-2);margin-bottom:.4rem}
+.file-input-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.file-drop{display:flex;align-items:center;gap:.6rem;padding:.7rem .9rem;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text-2);font-size:.9rem;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.file-drop:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.file-drop svg{flex:none;width:20px;height:20px}
+.file-drop-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-drop.has-file{border-style:solid;border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.file-drop.has-file .muted{display:none}
+.file-input-hidden:focus-visible+.file-drop{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(36,86,214,.22)}
 
 /* Redes: grilla fluida que aprovecha el ancho */
 .pf-social{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.5rem 1.25rem}

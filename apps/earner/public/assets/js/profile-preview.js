@@ -4,12 +4,22 @@
 (function () {
     'use strict';
 
+    // Muestra el nombre del archivo elegido en su botón .file-drop.
+    function showFilename(inputId, name) {
+        var label = document.querySelector('.file-drop[for="' + inputId + '"]');
+        if (!label) return;
+        var text = label.querySelector('.file-drop-text');
+        if (text) text.textContent = name;
+        label.classList.add('has-file');
+    }
+
     function onPick(inputId, apply) {
         var input = document.getElementById(inputId);
         if (!input) return;
         input.addEventListener('change', function () {
             var file = input.files && input.files[0];
             if (!file || file.type.indexOf('image/') !== 0) return;
+            showFilename(inputId, file.name);
             var reader = new FileReader();
             reader.onload = function () { apply(reader.result); };
             reader.readAsDataURL(file);
