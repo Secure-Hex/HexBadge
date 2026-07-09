@@ -53,7 +53,10 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                         <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
                     </label>
                     <?php if (!empty($e['avatar_filename'])): ?>
-                        <label class="remove-check"><input type="checkbox" name="remove_avatar" value="1"> Quitar foto actual</label>
+                        <button type="submit" form="rm-avatar" class="btn-remove">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+                            Quitar foto actual
+                        </button>
                     <?php endif; ?>
                 </div>
                 <div class="pf-photo-field">
@@ -64,7 +67,10 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                         <span class="file-drop-text">Elegir archivo <span class="muted">· PNG o JPG</span></span>
                     </label>
                     <?php if (!empty($e['cover_filename'])): ?>
-                        <label class="remove-check"><input type="checkbox" name="remove_cover" value="1"> Quitar portada actual</label>
+                        <button type="submit" form="rm-cover" class="btn-remove">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+                            Quitar portada actual
+                        </button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -114,5 +120,16 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
             </div>
         </div>
     </form>
+
+    <?php if (!empty($e['avatar_filename'])): ?>
+    <form id="rm-avatar" method="POST" action="/me/profile/photo/delete" class="pf-hidden-form">
+        <?= CSRF::field() ?><input type="hidden" name="field" value="avatar">
+    </form>
+    <?php endif; ?>
+    <?php if (!empty($e['cover_filename'])): ?>
+    <form id="rm-cover" method="POST" action="/me/profile/photo/delete" class="pf-hidden-form">
+        <?= CSRF::field() ?><input type="hidden" name="field" value="cover">
+    </form>
+    <?php endif; ?>
 </div>
 <script src="<?= asset('js/profile-preview.js') ?>" defer></script>

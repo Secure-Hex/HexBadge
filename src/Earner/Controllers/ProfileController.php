@@ -87,6 +87,33 @@ final class ProfileController extends EarnerBaseController
     }
 
     /**
+     * POST /me/profile/photo/delete — elimina de inmediato la foto de perfil o
+     * portada (field=avatar|cover), sin pasar por el resto del formulario.
+     */
+    public function removePhoto(Request $request): Response
+    {
+        $earner = EarnerAuth::user();
+        if ($earner === null) {
+            return Response::redirect('/login');
+        }
+        CSRF::check($request);
+
+        $field  = (string) $request->input('field', '');
+        $column = ['avatar' => 'avatar_filename', 'cover' => 'cover_filename'][$field] ?? null;
+        if ($column === null) {
+            return Response::redirect('/me/profile');
+        }
+
+        $old = (string) ($earner[$column] ?? '');
+        if ($old !== '') {
+            (new ImageService())->deleteProfile($old);
+            Earner::updateById((int) $earner['id'], [$column => null]);
+            Session::flash('success', $field === 'avatar' ? 'Foto de perfil eliminada.' : 'Foto de portada eliminada.');
+        }
+        return Response::redirect('/me/profile');
+    }
+
+    /**
      * Aplica al array de updates la subida de una imagen (campo file $field) o
      * su eliminación (checkbox remove_{$field}), reemplazando la anterior.
      * ponytail: si una segunda imagen falla la validación, la primera ya
