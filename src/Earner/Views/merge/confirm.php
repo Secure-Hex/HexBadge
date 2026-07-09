@@ -29,6 +29,8 @@ $textFields = [
             Ese correo quedará vinculado a esta wallet y seguirá recibiendo futuras acreditaciones.
         </p>
 
+        <?php if (!empty($error)): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+
         <form method="POST" action="/me/merge/<?= e($token) ?>">
             <?= CSRF::field() ?>
 
@@ -71,6 +73,18 @@ $textFields = [
                 <div class="merge-note">
                     Este correo no tiene una cuenta con perfil propio: solo se vinculará a tu wallet
                     (y sus acreditaciones pendientes pasarán a ella).
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($needsPassword)): ?>
+                <div class="merge-auth">
+                    <p class="merge-auth-title">Confirmá que esta cuenta es tuya</p>
+                    <label for="merge_pw">Contraseña de <?= e($sourceEmail) ?></label>
+                    <input type="password" id="merge_pw" name="password" required autocomplete="current-password">
+                    <?php if (!empty($needs2fa)): ?>
+                        <label for="merge_totp">Código de verificación (2FA)</label>
+                        <input type="text" id="merge_totp" name="totp" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code" placeholder="123456">
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 

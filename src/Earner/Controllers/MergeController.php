@@ -9,6 +9,7 @@ use HexBadge\Core\RateLimiter;
 use HexBadge\Core\Request;
 use HexBadge\Core\Response;
 use HexBadge\Core\Session;
+use HexBadge\Core\Totp;
 use HexBadge\Core\Validator;
 use HexBadge\Earner\EarnerAuth;
 use HexBadge\Models\Earner;
@@ -53,27 +54,17 @@ final class MergeController extends EarnerBaseController
      */
     public function showConfirm(Request $request, string $token): Response
     {
-        $svc   = new WalletMergeService();
-        $merge = $svc->findByVerifyToken($token);
+        $merge = (new WalletMergeService())->findByVerifyToken($token);
         if ($merge === null) {
             return $this->view('merge/invalid', ['pageTitle' => 'Enlace no válido'], 410);
         }
-
-        $target = Earner::find((int) $merge['target_earner_id']);
-        $source = Earner::findByEmail((string) $merge['source_email']);
-
-        return $this->view('merge/confirm', [
-            'pageTitle' => 'Unir mis acreditaciones',
-            'token'     => $token,
-            'merge'     => $merge,
-            'target'    => $target,
-            'source'    => $source,          // puede ser null (correo sin cuenta)
-            'fields'    => $this->fieldLabels(),
-        ]);
+        return $this->renderConfirm($token, $merge);
     }
 
     /**
      * POST /me/merge/{token} — aplica la fusión con las elecciones de perfil.
+     * Antes exige probar la titularidad de la cuenta origen (contraseña + 2FA si
+     * los tiene): poseer el correo no basta para reclamar sus acreditaciones.
      */
     public function apply(Request $request, string $token): Response
     {
@@ -82,6 +73,21 @@ final class MergeController extends EarnerBaseController
         $merge = $svc->findByVerifyToken($token);
         if ($merge === null) {
             return $this->view('merge/invalid', ['pageTitle' => 'Enlace no válido'], 410);
+        }
+
+        // Autenticación de la cuenta ORIGEN (la que aporta las acreditaciones).
+        $source = Earner::findByEmail((string) $merge['source_email']);
+        if ($source !== null && Earner::hasAccount($source)) {
+            if (!(new RateLimiter())->check($request->ip(), 'merge_apply', 10, 900)) {
+                return $this->renderConfirm($token, $merge, 'Demasiados intentos. Esperá unos minutos.', 429);
+            }
+            if (!password_verify((string) $request->input('password', ''), (string) $source['password_hash'])) {
+                return $this->renderConfirm($token, $merge, 'La contraseña de esa cuenta es incorrecta.', 422);
+            }
+            if ((int) ($source['totp_enabled'] ?? 0) === 1
+                && !Totp::verify((string) $source['totp_secret'], (string) $request->input('totp', ''))) {
+                return $this->renderConfirm($token, $merge, 'El código de verificación (2FA) es incorrecto.', 422);
+            }
         }
 
         // Elecciones de perfil: por defecto se conserva el destino; el nombre se
@@ -98,6 +104,29 @@ final class MergeController extends EarnerBaseController
             : '¡Listo! El correo quedó vinculado a tu wallet.');
 
         return Response::redirect('/earner/' . $result['target_uuid']);
+    }
+
+    /**
+     * Renderiza la pantalla de confirmación de la fusión (comparativo de perfil
+     * + autenticación de la cuenta origen si la tiene).
+     *
+     * @param array<string,mixed> $merge
+     */
+    private function renderConfirm(string $token, array $merge, ?string $error = null, int $status = 200): Response
+    {
+        $target = Earner::find((int) $merge['target_earner_id']);
+        $source = Earner::findByEmail((string) $merge['source_email']);
+
+        return $this->view('merge/confirm', [
+            'pageTitle'     => 'Unir mis acreditaciones',
+            'token'         => $token,
+            'merge'         => $merge,
+            'target'        => $target,
+            'source'        => $source,          // puede ser null (correo sin cuenta)
+            'needsPassword' => $source !== null && Earner::hasAccount($source),
+            'needs2fa'      => $source !== null && (int) ($source['totp_enabled'] ?? 0) === 1,
+            'error'         => $error,
+        ], $status);
     }
 
     /**
@@ -130,25 +159,5 @@ final class MergeController extends EarnerBaseController
         $svc->revertMerge($merge);
         Session::flash('success', 'Deshicimos la unión. Cada correo vuelve a tener su propia wallet.');
         return Response::redirect('/login');
-    }
-
-    /**
-     * Etiquetas legibles de los campos de perfil elegibles en la fusión.
-     *
-     * @return array<string,string>
-     */
-    private function fieldLabels(): array
-    {
-        return [
-            'name'            => 'Nombre',
-            'profile_bio'     => 'Bio',
-            'profile_url'     => 'Sitio web',
-            'avatar_filename' => 'Foto de perfil',
-            'cover_filename'  => 'Foto de portada',
-            'linkedin_url'    => 'LinkedIn',
-            'instagram_url'   => 'Instagram',
-            'x_url'           => 'X',
-            'github_url'      => 'GitHub',
-        ];
     }
 }

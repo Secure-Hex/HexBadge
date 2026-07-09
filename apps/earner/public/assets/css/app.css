@@ -512,6 +512,10 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .merge-thumb{width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
 .merge-invalid{text-align:center}
 .merge-invalid .btn{margin-top:1rem}
+.merge-auth{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1rem 1.1rem;margin-bottom:1.25rem}
+.merge-auth-title{margin:0 0 .5rem;font-weight:700;font-size:.9rem}
+.merge-auth label{margin-top:.55rem}
+.merge-auth input{max-width:280px}
 @media(max-width:520px){.pf-email-link{flex-direction:column}.pf-email-link .btn{width:100%}}
 
 /* ---- Seguridad de la cuenta ---- */
