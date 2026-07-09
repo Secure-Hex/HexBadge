@@ -64,6 +64,8 @@ $router->post('/me/profile/photo/delete', [ProfileController::class, 'removePhot
 
 // Fusión de wallets (vincular un segundo correo con verificación por email)
 $router->post('/me/emails/link', [MergeController::class, 'startLink']);
+$router->get('/me/merge/revert/{token}', [MergeController::class, 'showRevert']);
+$router->post('/me/merge/revert/{token}', [MergeController::class, 'revert']);
 $router->get('/me/merge/{token}', [MergeController::class, 'showConfirm']);
 $router->post('/me/merge/{token}', [MergeController::class, 'apply']);
 

@@ -62,7 +62,17 @@ final class EarnerAuth
     public static function user(): ?array
     {
         $id = self::id();
-        return $id === null ? null : Earner::find($id);
+        if ($id === null) {
+            return null;
+        }
+        $earner = Earner::find($id);
+        // Si esta cuenta fue fusionada en otra, la identidad efectiva es la del
+        // destino (así una sesión vieja de la cuenta absorbida ve la wallet unida).
+        $guard = 0;
+        while ($earner !== null && $earner['merged_into_id'] !== null && $guard++ < 5) {
+            $earner = Earner::find((int) $earner['merged_into_id']);
+        }
+        return $earner;
     }
 
     public static function logout(): void

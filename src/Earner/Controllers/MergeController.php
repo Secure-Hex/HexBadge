@@ -101,6 +101,38 @@ final class MergeController extends EarnerBaseController
     }
 
     /**
+     * GET /me/merge/revert/{token} — desde el aviso por correo: confirma deshacer.
+     */
+    public function showRevert(Request $request, string $token): Response
+    {
+        $merge = (new WalletMergeService())->findByRevertToken($token);
+        if ($merge === null) {
+            return $this->view('merge/invalid', ['pageTitle' => 'Enlace no válido'], 410);
+        }
+        return $this->view('merge/revert', [
+            'pageTitle' => 'Deshacer la unión',
+            'token'     => $token,
+            'merge'     => $merge,
+        ]);
+    }
+
+    /**
+     * POST /me/merge/revert/{token} — deshace la fusión.
+     */
+    public function revert(Request $request, string $token): Response
+    {
+        CSRF::check($request);
+        $svc   = new WalletMergeService();
+        $merge = $svc->findByRevertToken($token);
+        if ($merge === null) {
+            return $this->view('merge/invalid', ['pageTitle' => 'Enlace no válido'], 410);
+        }
+        $svc->revertMerge($merge);
+        Session::flash('success', 'Deshicimos la unión. Cada correo vuelve a tener su propia wallet.');
+        return Response::redirect('/login');
+    }
+
+    /**
      * Etiquetas legibles de los campos de perfil elegibles en la fusión.
      *
      * @return array<string,string>

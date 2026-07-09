@@ -23,6 +23,14 @@ final class WalletController extends EarnerBaseController
             return $this->view('wallet_not_found', ['pageTitle' => 'Perfil no encontrado'], 404);
         }
 
+        // Cuenta fusionada: su wallet vive en la cuenta destino.
+        if ($earner['merged_into_id'] !== null) {
+            $dest = Earner::find((int) $earner['merged_into_id']);
+            if ($dest !== null) {
+                return Response::redirect('/earner/' . (string) $dest['uuid']);
+            }
+        }
+
         $badges = IssuedBadge::acceptedForEarner((int) $earner['id']);
 
         // Decodificar tags de cada badge para la vista.
