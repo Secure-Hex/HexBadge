@@ -13,6 +13,7 @@ use HexBadge\Earner\Controllers\AcceptController;
 use HexBadge\Earner\Controllers\WalletController;
 use HexBadge\Earner\Controllers\EarnerAuthController;
 use HexBadge\Earner\Controllers\ProfileController;
+use HexBadge\Earner\Controllers\MergeController;
 use HexBadge\Earner\Controllers\SecurityController;
 use HexBadge\Earner\Controllers\VerifyController;
 use HexBadge\Earner\Controllers\CertificateController;
@@ -60,6 +61,11 @@ $router->get('/me/profile', [ProfileController::class, 'editProfile']);
 $router->post('/me/profile', [ProfileController::class, 'saveProfile']);
 $router->post('/me/profile/photo/upload', [ProfileController::class, 'uploadPhoto']);
 $router->post('/me/profile/photo/delete', [ProfileController::class, 'removePhoto']);
+
+// Fusión de wallets (vincular un segundo correo con verificación por email)
+$router->post('/me/emails/link', [MergeController::class, 'startLink']);
+$router->get('/me/merge/{token}', [MergeController::class, 'showConfirm']);
+$router->post('/me/merge/{token}', [MergeController::class, 'apply']);
 
 // Decidir sobre un badge pendiente (dueño autenticado)
 $router->get('/me/badge/{uuid}', [ProfileController::class, 'showBadge']);

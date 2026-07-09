@@ -16,6 +16,7 @@ use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\Earner;
 use HexBadge\Models\IssuedBadge;
 use HexBadge\Services\ImageService;
+use HexBadge\Services\WalletMergeService;
 
 /**
  * Panel privado del receptor: sus badges y edición de perfil.
@@ -46,6 +47,7 @@ final class ProfileController extends EarnerBaseController
         return $this->view('profile', [
             'pageTitle' => 'Mi perfil',
             'earner'    => $earner,
+            'emails'    => (new WalletMergeService())->emailsOf((int) $earner['id']),
             'errors'    => [],
         ]);
     }
@@ -76,7 +78,7 @@ final class ProfileController extends EarnerBaseController
                 'github_url'    => $v->url((string) $request->input('github_url', ''), false),
             ];
         } catch (\InvalidArgumentException $e) {
-            return $this->view('profile', ['pageTitle' => 'Mi perfil', 'earner' => array_merge($earner, $request->all()), 'errors' => [$e->getMessage()]], 422);
+            return $this->view('profile', ['pageTitle' => 'Mi perfil', 'earner' => array_merge($earner, $request->all()), 'emails' => (new WalletMergeService())->emailsOf((int) $earner['id']), 'errors' => [$e->getMessage()]], 422);
         }
 
         Earner::updateById((int) $earner['id'], $updates);

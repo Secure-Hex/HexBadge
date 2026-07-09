@@ -487,6 +487,33 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 }
 @media(max-width:520px){.field-grid{grid-template-columns:1fr}.pf-actions .btn{width:100%}}
 
+/* Correos vinculados */
+.pf-emails-hint{margin:-.7rem 0 .9rem;font-size:.86rem}
+.pf-email-list{list-style:none;margin:0 0 1.1rem;padding:0;display:grid;gap:.5rem}
+.pf-email-list li{display:flex;align-items:center;gap:.55rem;padding:.6rem .8rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.92rem}
+.pf-email-list svg{flex:none;width:18px;height:18px;color:var(--muted)}
+.pf-email-list li>span:first-of-type{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-email-list .tag{margin-left:auto;flex:none;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--primary);background:var(--primary-soft);padding:.15rem .5rem;border-radius:var(--radius-pill)}
+.pf-email-link{display:flex;gap:.6rem;margin:.35rem 0 .4rem}
+.pf-email-link input{flex:1;min-width:0}
+.pf-email-link .btn{flex:none}
+
+/* Pantalla de fusión de wallets */
+.merge-wrap{max-width:620px;margin:2rem auto;padding:0 1rem}
+.merge-card{padding:2rem}
+.merge-card h1{margin:0 0 .5rem}
+.merge-note{background:var(--primary-soft);border:1px solid var(--primary-soft-2);color:var(--text-2);border-radius:var(--radius-sm);padding:.8rem 1rem;font-size:.9rem;margin:1.25rem 0}
+.merge-fields{display:grid;gap:.5rem;margin-bottom:1.5rem}
+.merge-field{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:.15rem .7rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer}
+.merge-field:hover{border-color:var(--border-strong)}
+.merge-field input{grid-row:span 2;width:auto;margin:0}
+.merge-field-label{font-weight:600;font-size:.9rem}
+.merge-vs{grid-column:2;font-size:.85rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.merge-thumb{width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
+.merge-invalid{text-align:center}
+.merge-invalid .btn{margin-top:1rem}
+@media(max-width:520px){.pf-email-link{flex-direction:column}.pf-email-link .btn{width:100%}}
+
 /* ---- Seguridad de la cuenta ---- */
 .sec-card{padding:1.4rem 1.6rem;margin-bottom:1.25rem}
 .sec-card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}

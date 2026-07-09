@@ -115,10 +115,34 @@ $fullName = $fullName !== '' ? $fullName : (string) ($e['display_name'] ?? 'Tu n
                 </div>
             </div>
 
+            <div class="card pf-fields pf-card--wide">
+                <h2 class="pf-card-title">Correos vinculados</h2>
+                <p class="muted pf-emails-hint">Podés recibir acreditaciones en cualquiera de estos correos: todas caen en esta misma wallet.</p>
+                <ul class="pf-email-list">
+                    <?php foreach (($emails ?? []) as $i => $em): ?>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                            <span><?= e((string) $em) ?></span>
+                            <?php if ($i === 0): ?><span class="tag">Principal</span><?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <label for="link_email">Vincular otro correo</label>
+                <div class="pf-email-link">
+                    <input type="email" id="link_email" name="email" form="email-link-form" placeholder="otro@correo.com" required>
+                    <button type="submit" form="email-link-form" class="btn btn-primary">Vincular</button>
+                </div>
+                <small class="muted">Te enviaremos un enlace de verificación a ese correo para confirmar que es tuyo.</small>
+            </div>
+
             <div class="pf-actions pf-card--wide">
                 <button type="submit" class="btn btn-primary">Guardar perfil</button>
             </div>
         </div>
+    </form>
+
+    <form id="email-link-form" method="POST" action="/me/emails/link" class="pf-hidden-form">
+        <?= CSRF::field() ?>
     </form>
 
     <!-- Subida inmediata de fotos (el input vive en la tarjeta vía form=) -->
