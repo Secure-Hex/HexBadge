@@ -82,6 +82,11 @@ final class EarnerController extends Controller
 
     private function csv(string $v): string
     {
+        // Neutraliza formula/CSV injection: un valor que empieza con = + - @ (o
+        // tab/CR) se interpretaría como fórmula en Excel/Sheets. Se prefija con '.
+        if ($v !== '' && str_contains("=+-@\t\r", $v[0])) {
+            $v = "'" . $v;
+        }
         return str_replace([',', "\n", "\r"], [' ', ' ', ' '], $v);
     }
 

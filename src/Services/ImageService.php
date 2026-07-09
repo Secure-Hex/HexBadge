@@ -226,16 +226,81 @@ final class ImageService
     /**
      * Sanitiza un SVG eliminando scripts, handlers on* y URIs javascript:.
      */
+    /** Elementos SVG de presentación permitidos (allowlist). Todo lo demás se elimina. */
+    private const SVG_ALLOWED_TAGS = [
+        'svg', 'g', 'defs', 'title', 'desc', 'path', 'rect', 'circle', 'ellipse', 'line',
+        'polyline', 'polygon', 'text', 'tspan', 'lineargradient', 'radialgradient', 'stop',
+        'clippath', 'mask', 'pattern', 'symbol', 'marker', 'filter', 'fegaussianblur',
+        'feoffset', 'feblend', 'fecolormatrix', 'feflood', 'fecomposite', 'femerge', 'femergenode',
+    ];
+
+    /**
+     * Sanitiza un SVG con allowlist basado en DOM (no regex): parsea el XML,
+     * elimina todo elemento fuera de la allowlist y todo atributo peligroso
+     * (handlers on*, href/xlink:href no internos, valores javascript:). Regex no
+     * parsea XML de forma confiable (entidades, CDATA, namespaces, <use>, <animate>);
+     * el DOM sí. Si el archivo no parsea como XML o falta ext-dom, se vacía
+     * (fail-closed: no se sirve un SVG que no pudimos sanitizar).
+     */
     private function sanitizeSvg(string $path): void
     {
         $content = file_get_contents($path);
-        if ($content === false) {
+        if ($content === false || trim($content) === '') {
             return;
         }
-        $content = preg_replace('/<script[\s\S]*?<\/script>/i', '', $content) ?? $content;
-        $content = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $content) ?? $content;
-        $content = preg_replace('/javascript:/i', '', $content) ?? $content;
-        $content = preg_replace('/<foreignObject[\s\S]*?<\/foreignObject>/i', '', $content) ?? $content;
-        file_put_contents($path, $content);
+        if (!class_exists('DOMDocument')) {
+            file_put_contents($path, '');
+            return;
+        }
+
+        $prev = libxml_use_internal_errors(true);
+        $doc  = new \DOMDocument();
+        // Sin red ni entidades externas (anti-XXE): libxml no expande externas por
+        // defecto y LIBXML_NONET bloquea cualquier fetch.
+        $ok = $doc->loadXML($content, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+
+        if (!$ok || $doc->documentElement === null) {
+            file_put_contents($path, '');
+            return;
+        }
+
+        $this->scrubSvgNode($doc->documentElement);
+        $clean = $doc->saveXML();
+        file_put_contents($path, $clean !== false ? $clean : '');
+    }
+
+    /**
+     * Recorre un nodo SVG (recursivo) eliminando elementos fuera de la allowlist
+     * y atributos peligrosos.
+     */
+    private function scrubSvgNode(\DOMElement $node): void
+    {
+        foreach (iterator_to_array($node->childNodes) as $child) {
+            if (!$child instanceof \DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->localName ?? $child->nodeName);
+            if (!in_array($tag, self::SVG_ALLOWED_TAGS, true)) {
+                $node->removeChild($child);
+                continue;
+            }
+            $this->scrubSvgNode($child);
+        }
+
+        if ($node->hasAttributes()) {
+            foreach (iterator_to_array($node->attributes) as $attr) {
+                $name    = strtolower($attr->nodeName);
+                $val     = trim((string) $attr->nodeValue);
+                $isEvent = str_starts_with($name, 'on');
+                $isHref  = ($name === 'href' || str_ends_with($name, ':href'));
+                $badHref = $isHref && !str_starts_with($val, '#');
+                $hasJs   = stripos($val, 'javascript:') !== false;
+                if ($isEvent || $badHref || $hasJs) {
+                    $node->removeAttributeNode($attr);
+                }
+            }
+        }
     }
 }
