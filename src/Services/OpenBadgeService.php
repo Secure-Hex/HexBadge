@@ -29,7 +29,10 @@ final class OpenBadgeService
     {
         $uuid         = (string) $issuedBadge['uuid'];
         $assertionUrl = $this->baseUrl . '/verify/' . $uuid;
-        $email        = (string) ($issuedBadge['earner_email'] ?? '');
+        // El identity del Open Badge se hashea sobre el correo por el que se
+        // emitió (recipient_email); así la credencial sigue validando aunque el
+        // badge se haya movido a otra wallet por una fusión.
+        $email        = (string) ($issuedBadge['recipient_email'] ?? $issuedBadge['earner_email'] ?? '');
 
         $assertion = [
             '@context'  => 'https://w3id.org/openbadges/v2',

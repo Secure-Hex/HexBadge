@@ -79,6 +79,7 @@ final class BadgeService
                 'status'               => 'pending',
                 'accept_token'         => $tokenHash,
                 'accept_token_expires' => $tokenExpiry,
+                'recipient_email'      => strtolower($email),
                 'locale'               => $locale,
             ]);
 
@@ -200,7 +201,9 @@ final class BadgeService
         return [
             'badge_id'   => (int) $badge['id'],
             'company_id' => isset($badge['company_id']) ? (int) $badge['company_id'] : null,
-            'to'         => (string) $badge['earner_email'],
+            // Notificar al correo por el que se emitió (multi-correo); si es un
+            // badge previo a la migración, cae al correo primario del earner.
+            'to'         => (string) ($badge['recipient_email'] ?? $badge['earner_email']),
             'subject'    => 'Acreditación de ' . $issuerName . ': ' . $badgeName,
             'html'       => EmailTemplate::wrap($inner, 'SecureHex creó una acreditación a tu nombre: ' . $badgeName),
         ];

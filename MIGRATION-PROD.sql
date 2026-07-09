@@ -250,6 +250,63 @@ SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE user_invitations ADD COLUMN company
   FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_invitations' AND COLUMN_NAME='company_ids');
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
+-- ---------- 014 — multi-correo del receptor y fusión de wallets ----------
+
+CREATE TABLE IF NOT EXISTS earner_emails (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    earner_id  INT UNSIGNED NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (earner_id) REFERENCES earners(id),
+    INDEX idx_earner (earner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS earner_merges (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    target_earner_id  INT UNSIGNED NOT NULL,
+    source_email      VARCHAR(255) NOT NULL,
+    source_earner_id  INT UNSIGNED NULL,
+    verify_token_hash CHAR(64) NOT NULL,
+    verify_expires    DATETIME NOT NULL,
+    moved_badge_ids   JSON NULL,
+    profile_choices   JSON NULL,
+    source_snapshot   JSON NULL,
+    revert_token_hash CHAR(64) NULL,
+    revert_expires    DATETIME NULL,
+    status            ENUM('pending','active','reverted','expired') NOT NULL DEFAULT 'pending',
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (target_earner_id) REFERENCES earners(id),
+    INDEX idx_target (target_earner_id),
+    INDEX idx_verify (verify_token_hash),
+    INDEX idx_revert (revert_token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- earners.merged_into_id / merged_at
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN merged_into_id INT UNSIGNED NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='merged_into_id');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE earners ADD COLUMN merged_at DATETIME NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='earners' AND COLUMN_NAME='merged_at');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- issued_badges.recipient_email
+SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE issued_badges ADD COLUMN recipient_email VARCHAR(255) NULL','DO 0')
+  FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='issued_badges' AND COLUMN_NAME='recipient_email');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- Backfill: correo primario de cada earner (idempotente)
+INSERT INTO earner_emails (earner_id, email, is_primary)
+SELECT id, email, 1 FROM earners
+WHERE NOT EXISTS (SELECT 1 FROM earner_emails ee WHERE ee.earner_id = earners.id);
+
+-- Backfill: recipient_email = correo del dueño actual (idempotente)
+UPDATE issued_badges ib
+JOIN earners e ON e.id = ib.earner_id
+SET ib.recipient_email = e.email
+WHERE ib.recipient_email IS NULL;
+
 -- ============================================================
 -- Listo. Verificá con:  SELECT id, name FROM companies;
 -- Luego, en el panel (como superadmin): revisá Empresas, ajustá los

@@ -147,8 +147,43 @@ CREATE TABLE IF NOT EXISTS earners (
     reset_expires DATETIME NULL,
     token_expires DATETIME NULL,
     is_verified   TINYINT(1) NOT NULL DEFAULT 0,
+    merged_into_id INT UNSIGNED NULL,               -- cuenta fusionada dentro de otra (soft)
+    merged_at     DATETIME NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Correos de un earner (1..N). El primario replica earners.email.
+CREATE TABLE IF NOT EXISTS earner_emails (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    earner_id  INT UNSIGNED NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (earner_id) REFERENCES earners(id),
+    INDEX idx_earner (earner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ciclo de vida de una fusión de wallets (verificación → activa → revertida).
+CREATE TABLE IF NOT EXISTS earner_merges (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    target_earner_id  INT UNSIGNED NOT NULL,
+    source_email      VARCHAR(255) NOT NULL,
+    source_earner_id  INT UNSIGNED NULL,
+    verify_token_hash CHAR(64) NOT NULL,
+    verify_expires    DATETIME NOT NULL,
+    moved_badge_ids   JSON NULL,
+    profile_choices   JSON NULL,
+    source_snapshot   JSON NULL,
+    revert_token_hash CHAR(64) NULL,
+    revert_expires    DATETIME NULL,
+    status            ENUM('pending','active','reverted','expired') NOT NULL DEFAULT 'pending',
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (target_earner_id) REFERENCES earners(id),
+    INDEX idx_target (target_earner_id),
+    INDEX idx_verify (verify_token_hash),
+    INDEX idx_revert (revert_token_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Badges emitidos (assertion Open Badges 2.0)
@@ -170,6 +205,7 @@ CREATE TABLE IF NOT EXISTS issued_badges (
     accept_token_expires DATETIME NULL,
     accepted_at         DATETIME NULL,
     ob_assertion_json   JSON NULL,                     -- Open Badge assertion completa cacheada
+    recipient_email     VARCHAR(255) NULL,             -- correo por el que se emitió (multi-correo)
     locale              VARCHAR(10) NOT NULL DEFAULT 'es',
     FOREIGN KEY (badge_template_id) REFERENCES badge_templates(id),
     FOREIGN KEY (earner_id) REFERENCES earners(id),

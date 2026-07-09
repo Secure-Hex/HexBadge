@@ -6,6 +6,7 @@ namespace HexBadge\Services;
 
 use HexBadge\Core\Database;
 use HexBadge\Core\Logger;
+use HexBadge\Models\Earner;
 
 /**
  * Recuperación de contraseña para el panel admin (users) y el portal earner
@@ -54,9 +55,15 @@ final class PasswordResetService
         $db    = Database::getInstance();
         $email = strtolower(trim($email));
 
-        $sql  = "SELECT * FROM {$cfg['table']} WHERE email = ?";
-        $sql .= $cfg['activeOnly'] ? ' AND is_active = 1' : '';
-        $row  = $db->fetchOne($sql . ' LIMIT 1', [$email]);
+        // El earner resuelve por cualquiera de sus correos (multi-correo); el
+        // admin, por su columna email directa.
+        if ($audience === 'earner') {
+            $row = Earner::findByEmail($email);
+        } else {
+            $sql  = "SELECT * FROM {$cfg['table']} WHERE email = ?";
+            $sql .= $cfg['activeOnly'] ? ' AND is_active = 1' : '';
+            $row  = $db->fetchOne($sql . ' LIMIT 1', [$email]);
+        }
 
         // Sin cuenta, o cuenta sin contraseña (earner que nunca se registró):
         // no se puede restablecer. Salimos en silencio.
@@ -71,7 +78,10 @@ final class PasswordResetService
         ], 'id = ?', [(int) $row['id']]);
 
         $companyId = ($cfg['withCompany'] && $row['company_id'] !== null) ? (int) $row['company_id'] : null;
-        $this->sendEmail($audience, (string) $row['email'], (string) ($row[$cfg['nameField']] ?? ''), $rawToken, $companyId);
+        // Enviar al correo por el que se pidió el reset (para el earner puede ser
+        // un correo secundario); para el admin, su correo de cuenta.
+        $toEmail = $audience === 'earner' ? $email : (string) $row['email'];
+        $this->sendEmail($audience, $toEmail, (string) ($row[$cfg['nameField']] ?? ''), $rawToken, $companyId);
         Logger::audit('password.reset.requested', null, $audience === 'admin' ? 'user' : 'earner', (string) ($row['uuid'] ?? ''), ['email' => $email]);
     }
 

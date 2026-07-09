@@ -9,18 +9,26 @@ final class Earner extends Model
     protected static string $table = 'earners';
 
     /**
+     * Resuelve el earner dueño de un correo (primario o secundario) vía la
+     * tabla earner_emails. Ignora cuentas fusionadas (merged_into_id), cuyo
+     * correo ya resuelve al earner destino a través de earner_emails.
+     *
      * @return array<string,mixed>|null
      */
     public static function findByEmail(string $email): ?array
     {
         return static::db()->fetchOne(
-            'SELECT * FROM earners WHERE email = ? LIMIT 1',
+            'SELECT e.* FROM earners e
+             JOIN earner_emails ee ON ee.earner_id = e.id
+             WHERE ee.email = ? AND e.merged_into_id IS NULL
+             LIMIT 1',
             [strtolower($email)]
         );
     }
 
     /**
-     * Busca un earner por email o lo crea. Devuelve el registro completo.
+     * Busca un earner por email o lo crea. Devuelve el registro completo. Al
+     * crear, registra el correo como primario en earner_emails (atómico).
      *
      * @return array<string,mixed>
      */
@@ -31,12 +39,26 @@ final class Earner extends Model
             return $existing;
         }
 
-        $id = self::create([
-            'uuid'       => uuid4(),
-            'email'      => strtolower($email),
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-        ]);
+        $db    = static::db();
+        $email = strtolower($email);
+        $db->beginTransaction();
+        try {
+            $id = self::create([
+                'uuid'       => uuid4(),
+                'email'      => $email,
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+            ]);
+            $db->insert('earner_emails', [
+                'earner_id'  => $id,
+                'email'      => $email,
+                'is_primary' => 1,
+            ]);
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
 
         $row = self::find($id);
         if ($row === null) {
