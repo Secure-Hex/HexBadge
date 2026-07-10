@@ -1,0 +1,54 @@
+name: Release
+
+# Versionado automático: en cada push a main, si hay commits releasables
+# (feat/fix/perf/refactor/BREAKING) desde el último tag, crea la nueva versión,
+# el CHANGELOG, el tag y la GitHub Release. Reusa scripts/release.sh.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Evita re-disparar sobre el propio commit de release (además, los push
+    # hechos con GITHUB_TOKEN no disparan workflows).
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # historial completo + tags para el versionado
+
+      - name: Configurar git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Generar versión, changelog y tag
+        id: release
+        run: |
+          before=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          ./scripts/release.sh
+          after=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ "$before" != "$after" ] && [ -n "$after" ]; then
+            echo "tag=$after" >> "$GITHUB_OUTPUT"
+          else
+            echo "Sin release en este push."
+          fi
+
+      - name: Push del commit y el tag
+        if: steps.release.outputs.tag
+        run: git push --follow-tags origin HEAD:main
+
+      - name: Crear GitHub Release
+        if: steps.release.outputs.tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Notas = la sección más reciente del CHANGELOG (sin la línea del título).
+          notes=$(awk '/^## \[/{c++} c==1{print} c==2{exit}' CHANGELOG.md | tail -n +2)
+          gh release create "${{ steps.release.outputs.tag }}" \
+            --title "${{ steps.release.outputs.tag }}" \
+            --notes "$notes"
