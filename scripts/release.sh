@@ -105,9 +105,10 @@ fi
 { echo "# Changelog"; printf '\n%s\n' "$ENTRY"; tail -n +2 CHANGELOG.md; } > CHANGELOG.tmp
 mv CHANGELOG.tmp CHANGELOG.md
 
-sed -i -E "s/(env\('APP_VERSION', ')[^']*(')/\1${NEW}\2/" config/app.php
+# Fuente única de la versión que corre (la lee hexbadge_version() en runtime).
+printf '%s\n' "$NEW" > VERSION
 
-git add CHANGELOG.md config/app.php
+git add CHANGELOG.md VERSION
 git commit -q -m "chore(release): $TAG"
 git tag -a "$TAG" -m "Release $TAG"
 

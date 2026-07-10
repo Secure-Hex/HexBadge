@@ -111,6 +111,38 @@ function config(string $key, mixed $default = null): mixed
 }
 
 /**
+ * Versión de la app "que está corriendo". Fuente única, en orden:
+ *   1. archivo VERSION en la raíz (lo genera scripts/release.sh y se despliega).
+ *   2. git describe --tags (entorno de desarrollo con repositorio git).
+ *   3. 'dev' como último recurso.
+ * Se cachea en estático para no releer el archivo/llamar a git en cada uso.
+ */
+function hexbadge_version(): string
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $file = BASE_PATH . '/VERSION';
+    if (is_readable($file)) {
+        $v = trim((string) file_get_contents($file));
+        if ($v !== '') {
+            return $cached = ltrim($v, 'v');
+        }
+    }
+
+    if (function_exists('shell_exec') && is_dir(BASE_PATH . '/.git')) {
+        $git = @shell_exec('git -C ' . escapeshellarg(BASE_PATH) . ' describe --tags 2>/dev/null');
+        if (is_string($git) && trim($git) !== '') {
+            return $cached = ltrim(trim($git), 'v');
+        }
+    }
+
+    return $cached = 'dev';
+}
+
+/**
  * Escapa una cadena para renderizado seguro en HTML (anti-XSS).
  */
 function e(?string $value): string

@@ -7,7 +7,7 @@
  * (script-src 'self', sin inline). El logo reutiliza el partial layout/securelogo
  * que existe en las dos apps, resuelto por el basePath de View.
  */
-$aboutVersion = (string) config('app.version', '1.0');
+$aboutVersion = (string) config('app.version');
 ?>
 <a href="#about-hexbadge" class="about-btn" aria-label="Acerca de HexBadge">
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
