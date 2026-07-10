@@ -127,9 +127,14 @@ final class BulkIssueController extends Controller
         if ($r = Auth::requireRole('issuer')) {
             return $r;
         }
-        $job = BulkImportJob::findByUuid($uuid);
+        $job = BulkImportJob::findFullByUuid($uuid);
         if ($job === null) {
             return Response::html('<h1>404 — Job no encontrado</h1>', 404);
+        }
+        // Control de acceso: el job (y los emails de sus destinatarios) solo es
+        // visible para la empresa dueña del template, o un superadmin.
+        if ($resp = $this->assertCompanyAccess(isset($job['company_id']) ? (int) $job['company_id'] : null)) {
+            return $resp;
         }
 
         // Descarga del CSV de errores.
