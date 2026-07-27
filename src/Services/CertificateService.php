@@ -102,10 +102,11 @@ final class CertificateService
 
         $cache = self::CACHE_DIR . $badgeUuid . '.pdf';
 
-        // Usar cache si existe y es más nuevo que el template.
+        // Usar cache si existe y es más nuevo que todo lo que se dibuja en él:
+        // template, plantilla de diploma y el earner (su nombre va impreso).
         if (is_file($cache) && is_readable($cache) && filesize($cache) > 0) {
-            $tplTs = strtotime((string) ($badge['template_updated_at'] ?? '')) ?: 0;
-            if (filemtime($cache) >= $tplTs) {
+            $srcTs = strtotime((string) ($badge['cert_source_updated_at'] ?? '')) ?: 0;
+            if (filemtime($cache) >= $srcTs) {
                 return $cache;
             }
         }
