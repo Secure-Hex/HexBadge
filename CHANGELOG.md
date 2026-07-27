@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1] - 2026-07-27
+### Correcciones
+- regenerar el PDF cuando el earner cambia su nombre (b008c2a)
+### Otros
+- versión de la app desde archivo VERSION (fuente única en runtime) (c89c555)
+
 ## [1.1.0] - 2026-07-10
 ### Nuevas funcionalidades
 - exigir contraseña + 2FA de la cuenta origen al fusionar (785560c)
