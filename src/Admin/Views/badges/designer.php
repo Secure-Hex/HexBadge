@@ -81,16 +81,41 @@ $uuid = (string) $template['uuid'];
                 <option value="steel">Acero</option>
             </select>
 
+            <label for="f-shapeRot">Giro de la figura <output id="o-shapeRot"></output></label>
+            <input type="range" id="f-shapeRot" min="-180" max="180" step="1" data-k="shapeRot" data-unit="°">
+
+            <label for="f-plate">Figura de fondo</label>
+            <select id="f-plate" data-k="plate">
+                <?php foreach (S::PLATES as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
+            </select>
+            <label for="f-plateScale">Cuánto asoma <output id="o-plateScale"></output></label>
+            <input type="range" id="f-plateScale" min="100" max="145" step="1" data-k="plateScale" data-unit="%">
+
             <label for="f-ornament">Ornamento</label>
             <select id="f-ornament" data-k="ornament">
                 <?php foreach (S::ORNAMENTS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
             </select>
             <label for="f-ornScale">Tamaño del ornamento <output id="o-ornScale"></output></label>
-            <input type="range" id="f-ornScale" min="40" max="160" step="1" data-k="ornScale">
+            <input type="range" id="f-ornScale" min="40" max="160" step="1" data-k="ornScale" data-unit="%">
             <label for="f-ornY">Alto del ornamento <output id="o-ornY"></output></label>
-            <input type="range" id="f-ornY" min="-25" max="25" step="1" data-k="ornY">
+            <input type="range" id="f-ornY" min="-25" max="25" step="1" data-k="ornY" data-unit="%">
             <label for="f-ringW">Grosor del borde <output id="o-ringW"></output></label>
-            <input type="range" id="f-ringW" min="3" max="18" step="0.5" data-k="ringW">
+            <input type="range" id="f-ringW" min="3" max="18" step="0.5" data-k="ringW" data-unit="%">
+        </details>
+
+        <details class="bde-group" open>
+            <summary>Relieve y materia</summary>
+            <p class="muted" style="font-size:.82rem">
+                Lo que separa una figura de color plano de una pieza con espesor.
+            </p>
+            <label for="f-bevel">Biselado <output id="o-bevel"></output></label>
+            <input type="range" id="f-bevel" min="0" max="100" step="1" data-k="bevel" data-unit="%">
+            <label for="f-vignette">Sombra del borde <output id="o-vignette"></output></label>
+            <input type="range" id="f-vignette" min="0" max="60" step="1" data-k="vignette" data-unit="%">
+            <label for="f-grain">Grano de la superficie <output id="o-grain"></output></label>
+            <input type="range" id="f-grain" min="0" max="40" step="1" data-k="grain" data-unit="%">
+            <label for="f-glow">Resplandor <output id="o-glow"></output></label>
+            <input type="range" id="f-glow" min="0" max="60" step="1" data-k="glow" data-unit="%">
         </details>
 
         <details class="bde-group" open>
@@ -113,29 +138,32 @@ $uuid = (string) $template['uuid'];
             </select>
 
             <label for="f-gradX">Centro horizontal <output id="o-gradX"></output></label>
-            <input type="range" id="f-gradX" min="0" max="100" step="1" data-k="gradX">
+            <input type="range" id="f-gradX" min="0" max="100" step="1" data-k="gradX" data-unit="%">
             <label for="f-gradY">Centro vertical <output id="o-gradY"></output></label>
-            <input type="range" id="f-gradY" min="0" max="100" step="1" data-k="gradY">
+            <input type="range" id="f-gradY" min="0" max="100" step="1" data-k="gradY" data-unit="%">
             <label for="f-gradSpread">Extensión <output id="o-gradSpread"></output></label>
-            <input type="range" id="f-gradSpread" min="30" max="140" step="1" data-k="gradSpread">
+            <input type="range" id="f-gradSpread" min="30" max="140" step="1" data-k="gradSpread" data-unit="%">
             <label for="f-gradAngle">Ángulo (lineal) <output id="o-gradAngle"></output></label>
-            <input type="range" id="f-gradAngle" min="0" max="360" step="5" data-k="gradAngle">
+            <input type="range" id="f-gradAngle" min="0" max="360" step="5" data-k="gradAngle" data-unit="°">
 
             <label for="f-pattern">Trama de fondo</label>
             <select id="f-pattern" data-k="pattern">
                 <?php foreach (S::PATTERNS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
             </select>
             <label for="f-patternOp">Intensidad de la trama <output id="o-patternOp"></output></label>
-            <input type="range" id="f-patternOp" min="2" max="40" step="1" data-k="patternOp">
+            <input type="range" id="f-patternOp" min="2" max="40" step="1" data-k="patternOp" data-unit="%">
         </details>
 
         <details class="bde-group" open>
             <summary>Textos</summary>
             <label for="f-mark">Iniciales <span class="muted">(hasta 3)</span></label>
             <input type="text" id="f-mark" maxlength="3" data-k="mark.value">
+            <label for="f-markSize">Tamaño de las iniciales <output id="o-markSize"></output></label>
+            <input type="range" id="f-markSize" min="0.5" max="2" step="0.05" data-k="markSize" data-unit="x">
 
             <label for="f-title">Título</label>
             <input type="text" id="f-title" maxlength="44" data-k="title">
+            <label class="bd-check"><input type="checkbox" id="f-titleCaps" data-k="titleCaps"> Título en mayúsculas</label>
 
             <label for="f-level">Nivel</label>
             <input type="text" id="f-level" maxlength="24" data-k="level">
@@ -152,9 +180,12 @@ $uuid = (string) $template['uuid'];
                 <option value="folded">Plegada</option>
             </select>
             <label for="f-ribbonY">Alto de la cinta <output id="o-ribbonY"></output></label>
-            <input type="range" id="f-ribbonY" min="30" max="95" step="0.5" data-k="ribbonY">
+            <input type="range" id="f-ribbonY" min="30" max="95" step="0.5" data-k="ribbonY" data-unit="%">
             <label for="f-ribbonW">Ancho de la cinta <output id="o-ribbonW"></output></label>
-            <input type="range" id="f-ribbonW" min="40" max="100" step="1" data-k="ribbonW">
+            <input type="range" id="f-ribbonW" min="40" max="100" step="1" data-k="ribbonW" data-unit="%">
+            <label class="bd-check"><input type="checkbox" id="f-ribbonAuto" data-k="ribbonAuto"> La cinta sigue al color del borde</label>
+            <label for="f-ribbonColor">Color propio de la cinta</label>
+            <input type="color" id="f-ribbonColor" data-k="ribbonColor">
 
             <label for="f-arcTop">Texto curvo arriba</label>
             <input type="text" id="f-arcTop" maxlength="34" data-k="arcTop">
@@ -162,9 +193,9 @@ $uuid = (string) $template['uuid'];
             <label for="f-arcBottom">Texto curvo abajo</label>
             <input type="text" id="f-arcBottom" maxlength="34" data-k="arcBottom">
             <label for="f-arcR">Radio del texto curvo <output id="o-arcR"></output></label>
-            <input type="range" id="f-arcR" min="26" max="44" step="0.5" data-k="arcR">
+            <input type="range" id="f-arcR" min="26" max="44" step="0.5" data-k="arcR" data-unit="%">
             <label for="f-arcSize">Tamaño del texto curvo <output id="o-arcSize"></output></label>
-            <input type="range" id="f-arcSize" min="2.6" max="7" step="0.1" data-k="arcSize">
+            <input type="range" id="f-arcSize" min="2.6" max="7" step="0.1" data-k="arcSize" data-unit="%">
         </details>
 
         <details class="bde-group">
@@ -175,10 +206,10 @@ $uuid = (string) $template['uuid'];
             </select>
 
             <label for="f-titleSize">Tamaño del título <output id="o-titleSize"></output></label>
-            <input type="range" id="f-titleSize" min="0.6" max="1.6" step="0.05" data-k="titleSize">
+            <input type="range" id="f-titleSize" min="0.6" max="1.6" step="0.05" data-k="titleSize" data-unit="x">
 
             <label for="f-tracking">Espaciado entre letras <output id="o-tracking"></output></label>
-            <input type="range" id="f-tracking" min="0" max="12" step="0.5" data-k="tracking">
+            <input type="range" id="f-tracking" min="0" max="12" step="0.5" data-k="tracking" data-unit="px">
         </details>
 
         <details class="bde-group" open>
@@ -203,9 +234,17 @@ $uuid = (string) $template['uuid'];
                 <input type="range" id="f-imgRot" min="-180" max="180" step="1">
                 <label for="f-imgOp">Opacidad <output id="o-imgOp"></output></label>
                 <input type="range" id="f-imgOp" min="5" max="100" step="1">
+                <label for="f-imgBlend">Fusión con el fondo</label>
+                <select id="f-imgBlend">
+                    <?php foreach (S::BLENDS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
+                </select>
                 <label class="bd-check"><input type="checkbox" id="f-imgFlip"> Espejar</label>
                 <label class="bd-check"><input type="checkbox" id="f-imgGray"> Sin color</label>
-                <button type="button" class="btn btn-sm" id="bde-remove">Quitar del diseño</button>
+                <div class="bd-row" style="margin-top:.8rem">
+                    <button type="button" class="btn btn-sm" id="bde-back">Enviar atrás</button>
+                    <button type="button" class="btn btn-sm" id="bde-front">Traer al frente</button>
+                </div>
+                <button type="button" class="btn btn-sm" id="bde-remove" style="margin-top:.6rem">Quitar del diseño</button>
             </div>
         </details>
 

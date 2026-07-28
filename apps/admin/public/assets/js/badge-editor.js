@@ -48,19 +48,23 @@
     function hydrate() {
         controls.forEach(function (el) {
             var v = get(el.dataset.k);
-            if (v === undefined) { return; }
-            if (el.type === 'checkbox') { el.checked = !!v; } else { el.value = v; }
-        });
-        output('titleSize', state.titleSize, 'x');
-        output('tracking', state.tracking, 'px');
-        ['gradX','gradY','gradSpread','gradAngle','patternOp','stars','ornScale','ornY','ringW','ribbonY','ribbonW','arcR','arcSize'].forEach(function (k) {
-            output(k, state[k], k === 'gradAngle' ? '°' : (k === 'stars' ? '' : '%'));
+            if (v !== undefined) {
+                if (el.type === 'checkbox') { el.checked = !!v; } else { el.value = v; }
+            }
+            syncOut(el);
         });
     }
 
     function output(id, value, suffix) {
         var o = document.getElementById('o-' + id);
         if (o) { o.textContent = (Math.round(value * 100) / 100) + (suffix || ''); }
+    }
+
+    // La unidad la declara el propio control. Antes había dos listas de claves
+    // acá adentro que había que tocar en cada control nuevo, y olvidarse de una
+    // dejaba el número sin actualizar solo en un sentido.
+    function syncOut(el) {
+        if (el.type === 'range') { output(el.id.replace(/^f-/, ''), el.value, el.dataset.unit || ''); }
     }
 
     controls.forEach(function (el) {
@@ -71,11 +75,7 @@
             set(k, v);
             // Las iniciales son un objeto: sin tipo, el servidor las descarta.
             if (k === 'mark.value') { state.mark.type = String(v).trim() === '' ? 'none' : 'initials'; }
-            if (k === 'titleSize') { output('titleSize', v, 'x'); }
-            if (k === 'tracking') { output('tracking', v, 'px'); }
-            if (['gradX','gradY','gradSpread','patternOp','ornScale','ornY','ringW','ribbonY','ribbonW','arcR','arcSize'].indexOf(k) >= 0) { output(k, v, '%'); }
-            if (k === 'gradAngle') { output(k, v, '°'); }
-            if (k === 'stars') { output(k, v, ''); }
+            syncOut(el);
             sync();
         });
     });
@@ -89,7 +89,7 @@
             }
             state.images.push({
                 dir: btn.dataset.dir, file: btn.dataset.file,
-                x: 0.5, y: 0.35, w: 0.22, rot: 0, op: 1
+                x: 0.5, y: 0.35, w: 0.22, rot: 0, op: 1, blend: 'normal'
             });
             selected = 'i:' + (state.images.length - 1);
             sync();
@@ -120,6 +120,34 @@
             var i = imgIndex();
             if (i < 0) { return; }
             state.images[i][pair[1]] = el.checked;
+            sync();
+        });
+    });
+
+    var blend = document.getElementById('f-imgBlend');
+    if (blend) {
+        blend.addEventListener('change', function () {
+            var i = imgIndex();
+            if (i < 0) { return; }
+            state.images[i].blend = blend.value;
+            sync();
+        });
+    }
+
+    // El orden del arreglo ES el orden de dibujo: mover la capa es mover el
+    // elemento. Con seis imágenes encimadas, sin esto no había forma de rescatar
+    // la que quedó debajo.
+    [['bde-front', 1], ['bde-back', -1]].forEach(function (pair) {
+        var el = document.getElementById(pair[0]);
+        if (!el) { return; }
+        el.addEventListener('click', function () {
+            var i = imgIndex();
+            var j = i + pair[1];
+            if (i < 0 || j < 0 || j >= state.images.length) { return; }
+            var tmp = state.images[i];
+            state.images[i] = state.images[j];
+            state.images[j] = tmp;
+            selected = 'i:' + j;
             sync();
         });
     });
@@ -166,8 +194,15 @@
         output('imgOp', Math.round((img.op == null ? 1 : img.op) * 100), '%');
         var fl = document.getElementById('f-imgFlip');
         var gr = document.getElementById('f-imgGray');
+        var bl = document.getElementById('f-imgBlend');
         if (fl) { fl.checked = !!img.flip; }
         if (gr) { gr.checked = !!img.gray; }
+        if (bl) { bl.value = img.blend || 'normal'; }
+
+        var fr = document.getElementById('bde-front');
+        var bk = document.getElementById('bde-back');
+        if (fr) { fr.disabled = sel === state.images.length - 1; }
+        if (bk) { bk.disabled = sel === 0; }
     }
 
     // ---- manijas de las capas ----

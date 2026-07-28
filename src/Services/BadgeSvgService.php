@@ -30,10 +30,40 @@ final class BadgeSvgService
     public const SHAPES = [
         'circle'  => 'Círculo',
         'hexagon' => 'Hexágono',
+        'octagon' => 'Octágono',
         'shield'  => 'Escudo',
         'rounded' => 'Cuadrado redondeado',
+        'diamond' => 'Rombo',
         'rosette' => 'Roseta',
+        'seal'    => 'Sello dentado',
         'star'    => 'Estrella',
+    ];
+
+    /**
+     * Figura que asoma por detrás del cuerpo.
+     *
+     * Es el recurso con el que están hechas casi todas las medallas reales: una
+     * pieza sobre otra, girada, para que el borde se lea como relieve y no como
+     * un contorno dibujado.
+     *
+     * @var array<string,string>
+     */
+    public const PLATES = [
+        'none'    => 'Ninguna',
+        'star'    => 'Estrella',
+        'rosette' => 'Roseta',
+        'seal'    => 'Sello dentado',
+        'same'    => 'La misma figura',
+    ];
+
+    /** Modos de fusión de una capa de imagen sobre el cuerpo. */
+    public const BLENDS = [
+        'normal'     => 'Normal',
+        'multiply'   => 'Multiplicar',
+        'screen'     => 'Trama',
+        'overlay'    => 'Superponer',
+        'soft-light' => 'Luz suave',
+        'luminosity' => 'Luminosidad',
     ];
 
     /** @var array<string,string> */
@@ -143,6 +173,16 @@ final class BadgeSvgService
 
         return [
             'shape'    => $pick($in['shape'] ?? '', self::SHAPES, 'circle'),
+            'shapeRot' => $num($in['shapeRot'] ?? null, -180, 180, 0),
+            'plate'    => $pick($in['plate'] ?? '', self::PLATES, 'none'),
+            'plateScale' => $num($in['plateScale'] ?? null, 100, 145, 118),
+            // Relieve y materia. Son los cuatro controles que separan una figura
+            // plana de una pieza: luz rasante en el canto, grano, sombra en el
+            // borde interior y halo.
+            'bevel'    => $num($in['bevel'] ?? null, 0, 100, 0),
+            'grain'    => $num($in['grain'] ?? null, 0, 40, 0),
+            'vignette' => $num($in['vignette'] ?? null, 0, 60, 0),
+            'glow'     => $num($in['glow'] ?? null, 0, 60, 0),
             'fill'     => $hex($in['fill'] ?? '', '#1565d8'),
             'fill2'    => $hex($in['fill2'] ?? '', '#0b3b8c'),
             'accent'   => $hex($in['accent'] ?? '', '#0f1b2e'),
@@ -161,6 +201,10 @@ final class BadgeSvgService
             'ribbonW'  => $num($in['ribbonW'] ?? null, 40, 100, 80),
             'ribbonStyle' => in_array($in['ribbonStyle'] ?? '', ['tail', 'flat', 'folded'], true)
                 ? (string) $in['ribbonStyle'] : 'tail',
+            // Por defecto la cinta sigue al borde, que es lo que ya hacía; el
+            // color propio es una excepción que hay que pedir.
+            'ribbonAuto'  => !array_key_exists('ribbonAuto', $in) || !empty($in['ribbonAuto']),
+            'ribbonColor' => $hex($in['ribbonColor'] ?? '', '#8a1c1c'),
             'ornY'     => $num($in['ornY'] ?? null, -25, 25, 0),
             'ornScale' => $num($in['ornScale'] ?? null, 40, 160, 100),
             'ringW'    => $num($in['ringW'] ?? null, 3, 18, 8.5),
@@ -171,6 +215,8 @@ final class BadgeSvgService
             'ornament' => $pick($in['ornament'] ?? '', self::ORNAMENTS, 'laurel'),
             'font'     => $pick($in['font'] ?? '', self::FONTS, 'sans'),
             'mark'     => ['type' => $type, 'value' => $value],
+            'markSize' => $num($in['markSize'] ?? null, 0.5, 2.0, 1.0),
+            'titleCaps' => !empty($in['titleCaps']),
             'title'    => $txt($in['title'] ?? '', 44),
             'level'    => $txt($in['level'] ?? '', 24),
             'ribbon'   => !empty($in['ribbon']),
@@ -233,6 +279,7 @@ final class BadgeSvgService
                 'op'   => $num($img['op'] ?? null, 0.05, 1, 1),
                 'flip' => !empty($img['flip']),
                 'gray' => !empty($img['gray']),
+                'blend' => isset(self::BLENDS[$img['blend'] ?? '']) ? (string) $img['blend'] : 'normal',
             ];
         }
 
@@ -318,12 +365,15 @@ final class BadgeSvgService
             }
             $transform = $tr === [] ? '' : ' transform="' . implode(' ', $tr) . '"';
             $filter    = $img['gray'] ? ' filter="url(#gray' . $this->uid . ')"' : '';
+            // Fusionar en vez de apoyar: un logo en «multiplicar» o «luz suave»
+            // toma el degradado del cuerpo y deja de parecer una calcomanía.
+            $blend     = $img['blend'] !== 'normal' ? ' style="mix-blend-mode:' . $img['blend'] . '"' : '';
 
             $out .= '<image href="data:' . $mime . ';base64,' . base64_encode($bytes) . '"'
                 . ' x="' . round($x, 1) . '" y="' . round($y, 1) . '"'
                 . ' width="' . round($w, 1) . '" height="' . round($h, 1) . '"'
                 . ($img['op'] < 1 ? ' opacity="' . round($img['op'], 2) . '"' : '')
-                . $transform . $filter
+                . $transform . $filter . $blend
                 . ' preserveAspectRatio="xMidYMid meet"/>';
         }
 
@@ -346,10 +396,19 @@ final class BadgeSvgService
 
         $defs  = $this->defs($r);
         $body  = '';
+        $rad   = $vb * 0.455;
+        $rot   = $this->rotAttr($r, $c);
 
-        // Cuerpo y borde.
-        $body .= $this->shapeElement($r, $c, $vb * 0.455, 'url(#bg' . $this->uid . ')', 'filter="url(#drop' . $this->uid . ')"');
-        $body .= $this->ringElement($r, $c, $vb * 0.455);
+        // Cuerpo y borde. La placa entra en el mismo grupo que la figura para
+        // que la sombra sea una sola, de la pieza entera y no de cada parte.
+        $bevel = $r['bevel'] > 0 ? ' filter="url(#bev' . $this->uid . ')"' : '';
+        $body .= '<g filter="url(#drop' . $this->uid . ')">'
+            . $this->plateElement($r, $c, $rad)
+            . '<path d="' . $this->shapePath($r['shape'], $c, $rad) . '"' . $rot
+            . ' fill="url(#bg' . $this->uid . ')"' . $bevel . '/>'
+            . '</g>';
+        $body .= $rot === '' ? $this->ringElement($r, $c, $rad)
+            : '<g' . $rot . '>' . $this->ringElement($r, $c, $rad) . '</g>';
         if ($r['pattern'] !== 'none') {
             $fill = $r['pattern'] === 'sunburst'
                 ? '<use href="#pat' . $this->uid . '"/>'
@@ -358,10 +417,23 @@ final class BadgeSvgService
                 . $fill . '</g>';
         }
 
+        // El grano va sobre el color y debajo del reflejo: es materia del cuerpo,
+        // no suciedad encima de la pieza terminada.
+        if ($r['grain'] > 0) {
+            $body .= '<rect x="0" y="0" width="' . $vb . '" height="' . $vb . '" filter="url(#grain' . $this->uid . ')"'
+                . ' clip-path="url(#clipShape' . $this->uid . ')" opacity="' . round($r['grain'] / 100, 2)
+                . '" style="mix-blend-mode:overlay"/>';
+        }
+
         if ($r['finish'] === 'gloss' || $r['finish'] === 'satin') {
             // Reflejo superior: una elipse recortada a la forma, muy tenue.
             $body .= '<ellipse cx="' . $c . '" cy="' . round($vb * 0.30, 1) . '" rx="' . round($vb * 0.34, 1)
                 . '" ry="' . round($vb * 0.20, 1) . '" fill="url(#gloss' . $this->uid . ')" clip-path="url(#clipShape' . $this->uid . ')"/>';
+        }
+
+        if ($r['vignette'] > 0) {
+            $body .= '<rect x="0" y="0" width="' . $vb . '" height="' . $vb . '" fill="url(#vig' . $this->uid . ')"'
+                . ' clip-path="url(#clipShape' . $this->uid . ')"/>';
         }
 
         $body .= $this->ornamentElement($r, $c, $vb);
@@ -457,15 +529,82 @@ final class BadgeSvgService
                 . '<stop offset="100%" stop-color="' . self::shade($r['accent'], -0.3) . '"/></linearGradient>';
         }
 
-        $defs .= '<filter id="drop' . $u . '" x="-25%" y="-25%" width="150%" height="150%">'
+        // El halo entra en el mismo filtro que la sombra: en SVG un elemento
+        // admite un solo `filter`, y encadenar los dos primitivos sale más
+        // barato que envolver la pieza en otro grupo.
+        $defs .= '<filter id="drop' . $u . '" x="-45%" y="-45%" width="190%" height="190%">'
+            . ($r['glow'] > 0
+                ? '<feDropShadow dx="0" dy="0" stdDeviation="' . round(4 + $r['glow'] * 0.34, 1)
+                  . '" flood-color="' . self::shade($r['accent'], 0.35) . '" flood-opacity="'
+                  . round(0.25 + $r['glow'] / 120, 2) . '"/>'
+                : '')
             . '<feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0f1b2e" flood-opacity=".34"/></filter>'
             . '<filter id="tsh' . $u . '" x="-20%" y="-20%" width="140%" height="140%">'
             . '<feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#000000" flood-opacity=".45"/></filter>'
             . '<filter id="gray' . $u . '"><feColorMatrix type="saturate" values="0"/></filter>'
-            . '<clipPath id="clipShape' . $u . '"><path d="' . $this->shapePath($r['shape'], $vb / 2, $vb * 0.455) . '"/></clipPath>'
+            . '<clipPath id="clipShape' . $u . '"><path d="' . $this->shapePath($r['shape'], $vb / 2, $vb * 0.455) . '"'
+            . $this->rotAttr($r, $vb / 2) . '/></clipPath>'
+            . $this->bevelDef($r)
+            . $this->materialDefs($r)
             . $this->patternDef($r);
 
         return $defs;
+    }
+
+    /**
+     * Biselado: luz rasante sobre el canto de la figura.
+     *
+     * Es lo que convierte una silueta rellena en una pieza con espesor. Se hace
+     * iluminando el alfa desenfocado —el borde queda como una pendiente— y
+     * sumando ese brillo especular sobre el color original.
+     */
+    private function bevelDef(array $r): string
+    {
+        if ($r['bevel'] <= 0) {
+            return '';
+        }
+        $s = $r['bevel'] / 100;
+
+        // El exponente alto es lo que hace que esto sea un bisel y no un velo: en
+        // una superficie plana la normal es constante, así que con exponente bajo
+        // toda la cara devuelve el mismo reflejo y la pieza sale lavada. Con 64,
+        // el plano aporta casi cero y solo el canto —donde el desenfoque del alfa
+        // inclina la normal— se enciende.
+        return '<filter id="bev' . $this->uid . '" x="-20%" y="-20%" width="140%" height="140%">'
+            . '<feGaussianBlur in="SourceAlpha" stdDeviation="' . round(2 + 3.5 * $s, 1) . '" result="bblur"/>'
+            . '<feSpecularLighting in="bblur" surfaceScale="' . round(3 + 12 * $s, 1)
+            . '" specularConstant="' . round(0.7 + 0.9 * $s, 2)
+            . '" specularExponent="64" lighting-color="#ffffff" result="bspec">'
+            . '<feDistantLight azimuth="235" elevation="52"/></feSpecularLighting>'
+            . '<feComposite in="bspec" in2="SourceAlpha" operator="in" result="bclip"/>'
+            . '<feComposite in="SourceGraphic" in2="bclip" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>'
+            . '</filter>';
+    }
+
+    /** Grano de la superficie y sombra del borde interior. */
+    private function materialDefs(array $r): string
+    {
+        $u   = $this->uid;
+        $out = '';
+
+        if ($r['grain'] > 0) {
+            // Ruido fractal desaturado: el mismo recurso con el que se imita el
+            // papel de un diploma o el granallado de una medalla.
+            $out .= '<filter id="grain' . $u . '" x="0" y="0" width="100%" height="100%">'
+                . '<feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch"/>'
+                . '<feColorMatrix type="saturate" values="0"/></filter>';
+        }
+        if ($r['vignette'] > 0) {
+            // El radio se mide sobre el lienzo, pero lo que hay que oscurecer es
+            // el borde de la figura, que está al 45,5%: con un radio mayor la
+            // sombra terminaba fuera de la pieza y adentro no se veía nada.
+            $out .= '<radialGradient id="vig' . $u . '" cx="50%" cy="50%" r="47%">'
+                . '<stop offset="55%" stop-color="#000000" stop-opacity="0"/>'
+                . '<stop offset="100%" stop-color="#000000" stop-opacity="' . round($r['vignette'] / 100, 2) . '"/>'
+                . '</radialGradient>';
+        }
+
+        return $out;
     }
 
     /** Trama de fondo, recortada a la figura. */
@@ -514,8 +653,14 @@ final class BadgeSvgService
     {
         return match ($shape) {
             'hexagon' => self::polygonPath($c, $r, 6, -90),
+            'octagon' => self::polygonPath($c, $r, 8, -112.5),
+            'diamond' => self::polygonPath($c, $r, 4, -90),
             'star'    => self::starPath($c, $r, 5, 0.48),
             'rosette' => self::rosettePath($c, $r, 14),
+            // Un sello: muchos dientes muy poco profundos. Con `inner` alto la
+            // estrella deja de leerse como estrella y pasa a ser un canto
+            // moleteado, que es el borde de una moneda.
+            'seal'    => self::starPath($c, $r, 22, 0.9),
             'rounded' => self::roundedPath($c, $r),
             'shield'  => self::shieldPath($c, $r),
             default   => 'M ' . ($c - $r) . ' ' . $c
@@ -524,9 +669,38 @@ final class BadgeSvgService
         };
     }
 
-    private function shapeElement(array $r, float $c, float $rad, string $fill, string $extra = ''): string
+    /**
+     * Giro de la figura, del borde y del recorte.
+     *
+     * Va como transformación y no como ángulo inicial del polígono porque así
+     * alcanza también al círculo, al escudo y al cuadrado, que se dibujan con
+     * arcos y no con vértices calculados.
+     */
+    private function rotAttr(array $r, float $c): string
     {
-        return '<path d="' . $this->shapePath($r['shape'], $c, $rad) . '" fill="' . $fill . '" ' . $extra . '/>';
+        return $r['shapeRot'] == 0.0
+            ? ''
+            : ' transform="rotate(' . round($r['shapeRot'], 1) . ' ' . $c . ' ' . $c . ')"';
+    }
+
+    /** Figura que asoma por detrás, girada para que se vea el diente. */
+    private function plateElement(array $r, float $c, float $rad): string
+    {
+        if ($r['plate'] === 'none') {
+            return '';
+        }
+        $pr = $rad * $r['plateScale'] / 100;
+        $d  = match ($r['plate']) {
+            'star'    => self::starPath($c, $pr, 8, 0.62),
+            'rosette' => self::rosettePath($c, $pr, 16),
+            'seal'    => self::starPath($c, $pr, 22, 0.9),
+            default   => $this->shapePath($r['shape'], $c, $pr),
+        };
+
+        // El desfase de 11° es lo que hace que la placa se lea: alineada con la
+        // figura de arriba parecería un borde grueso y no una segunda pieza.
+        return '<path d="' . $d . '" fill="url(#ringGrad' . $this->uid . ')" opacity=".95"'
+            . ' transform="rotate(' . round($r['shapeRot'] + 11, 1) . ' ' . $c . ' ' . $c . ')"/>';
     }
 
     /** Borde exterior, con sus variantes. */
@@ -652,7 +826,7 @@ final class BadgeSvgService
             . '</defs>';
 
         $style = 'font-family:' . $font . ';font-weight:700;letter-spacing:' . round(2 + $r['tracking'], 1)
-            . 'px;fill:' . $r['ink'] . ';font-size:' . round($vb * 0.045, 1) . 'px';
+            . 'px;fill:' . $r['ink'] . ';font-size:' . round($vb * $r['arcSize'] / 100, 1) . 'px';
 
         if ($r['arcTop'] !== '') {
             $out .= '<text style="' . $style . '"><textPath href="#arcT' . $this->uid . '" startOffset="50%" text-anchor="middle">'
@@ -704,7 +878,7 @@ final class BadgeSvgService
             $cy     = $manual !== null ? $manual['y'] * $vb : null;
 
             if ($kind === 'mark') {
-                $size = $vb * 0.155;
+                $size = $vb * 0.155 * $r['markSize'];
                 $ty   = $cy ?? $y;
                 $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle"' . $sh . ' '
                     . 'style="font-family:' . $font . ';font-weight:800;font-size:' . round($size, 1)
@@ -713,7 +887,7 @@ final class BadgeSvgService
                 $layout['mark'] = ['x' => $cx / $vb, 'y' => $ty / $vb, 'h' => $size / $vb];
                 $y = $ty + $size * 0.72;
             } elseif ($kind === 'title') {
-                $lines = self::wrap($text, 18, 3);
+                $lines = self::wrap($r['titleCaps'] ? mb_strtoupper($text) : $text, 18, 3);
                 $size  = $vb * 0.072 * $r['titleSize'] * (count($lines) > 2 ? 0.86 : 1);
                 $ty    = $cy ?? $y;
                 foreach ($lines as $i => $line) {
@@ -766,7 +940,7 @@ final class BadgeSvgService
 
         // La cinta tiene fondo propio: su texto se decide por ese fondo y no por
         // la tinta general, o queda ilegible sobre un aro dorado o plateado.
-        $band = self::shade($r['accent'], -0.1);
+        $band = $r['ribbonAuto'] ? self::shade($r['accent'], -0.1) : $r['ribbonColor'];
         $ink  = self::readable($band);
         $out  = '';
 
