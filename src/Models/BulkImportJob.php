@@ -16,7 +16,7 @@ final class BulkImportJob extends Model
     public static function findFullByUuid(string $uuid): ?array
     {
         return static::db()->fetchOne(
-            'SELECT j.*, bt.company_id, bt.name AS template_name
+            'SELECT j.*, bt.company_id, bt.name AS template_name, bt.uuid AS template_uuid
              FROM bulk_import_jobs j
              JOIN badge_templates bt ON bt.id = j.template_id
              WHERE j.uuid = ? LIMIT 1',

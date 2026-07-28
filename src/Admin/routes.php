@@ -95,6 +95,7 @@ $router->post('/admin/issue', [IssueController::class, 'issue']);
 // --- Emisión masiva CSV ---
 $router->get('/admin/bulk-issue', [BulkIssueController::class, 'form']);
 $router->post('/admin/bulk-issue', [BulkIssueController::class, 'upload']);
+$router->post('/admin/bulk-issue/{uuid}/confirm', [BulkIssueController::class, 'confirm']);
 $router->get('/admin/bulk-issue/{uuid}', [BulkIssueController::class, 'show']);
 
 // --- Badges emitidos ---

@@ -7,7 +7,8 @@ namespace HexBadge\Services;
 use HexBadge\Core\Database;
 use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
-use HexBadge\Models\BulkImportJob;
+use HexBadge\Models\Earner;
+use HexBadge\Models\IssuedBadge;
 
 /**
  * Procesamiento de emisión masiva por CSV (CLAUDE.md §6.3).
@@ -20,10 +21,198 @@ final class CsvImportService
     private BadgeService $badges;
     private Validator $validator;
 
+    /** @var array<string,array<string,mixed>|null> Templates por UUID (null = no existe). */
+    private array $templateCache = [];
+
     public function __construct()
     {
         $this->badges    = new BadgeService();
         $this->validator = new Validator();
+    }
+
+    /**
+     * Índices de columna del encabezado. Consume la primera fila del handle.
+     * Acepta cualquier orden y nombres en inglés o español; la columna del
+     * template es opcional (si falta se usa el elegido en el formulario).
+     *
+     * @param resource $handle
+     *
+     * @return array{first:?int,last:?int,email:?int,locale:?int,tpl:?int}
+     */
+    private static function columnMap($handle): array
+    {
+        $header = fgetcsv($handle);
+        $map    = [];
+        foreach (is_array($header) ? $header : [] as $i => $name) {
+            $key = strtolower(trim(str_replace("\xEF\xBB\xBF", '', (string) $name)));
+            if ($key !== '') {
+                $map[$key] = $i;
+            }
+        }
+        $find = static function (array $names) use ($map): ?int {
+            foreach ($names as $n) {
+                if (array_key_exists($n, $map)) {
+                    return $map[$n];
+                }
+            }
+            return null;
+        };
+
+        return [
+            'first'  => $find(['first_name', 'nombre', 'firstname', 'first']),
+            'last'   => $find(['last_name', 'apellido', 'lastname', 'last']),
+            'email'  => $find(['email', 'correo', 'e-mail', 'mail']),
+            'locale' => $find(['locale', 'idioma']),
+            'tpl'    => $find(['badge_template_id', 'template_id', 'template', 'badge', 'uuid']),
+        ];
+    }
+
+    /**
+     * Valor crudo de una celda, sin validar.
+     *
+     * @param array<int,mixed> $row
+     */
+    private static function cell(array $row, ?int $idx): string
+    {
+        return ($idx !== null && isset($row[$idx])) ? trim((string) $row[$idx]) : '';
+    }
+
+    private function template(string $uuid): ?array
+    {
+        if (!array_key_exists($uuid, $this->templateCache)) {
+            $this->templateCache[$uuid] = BadgeTemplate::findByUuid($uuid);
+        }
+        return $this->templateCache[$uuid];
+    }
+
+    /**
+     * Valida una fila y devuelve sus campos normalizados. Lanza si es inválida.
+     * Lo usan por igual la previsualización y la emisión, para que lo que se
+     * muestra antes de confirmar sea exactamente lo que se va a procesar.
+     *
+     * @param array<int,mixed>                                        $row
+     * @param array{first:?int,last:?int,email:?int,locale:?int,tpl:?int} $cols
+     *
+     * @return array{template_uuid:string,first_name:string,last_name:string,email:string,locale:string}
+     */
+    private function parseRow(array $row, array $cols, string $templateUuid, ?int $allowedCompanyId): array
+    {
+        $rawTpl  = self::cell($row, $cols['tpl']);
+        $tplUuid = $rawTpl !== '' ? $this->validator->uuid($rawTpl) : $templateUuid;
+
+        // Aislamiento por empresa: una fila no puede emitir con un template de
+        // otra empresa (el del formulario ya fue validado).
+        if ($tplUuid !== $templateUuid) {
+            $t = $this->template($tplUuid);
+            $companyId = $t === null ? false : (isset($t['company_id']) ? (int) $t['company_id'] : null);
+            if ($companyId !== $allowedCompanyId) {
+                throw new \RuntimeException('Template fuera de tu empresa');
+            }
+        }
+
+        return [
+            'template_uuid' => $tplUuid,
+            'first_name'    => $this->validator->name(self::cell($row, $cols['first'])),
+            'last_name'     => $this->validator->name(self::cell($row, $cols['last'])),
+            'email'         => $this->validator->email(self::cell($row, $cols['email'])),
+            'locale'        => self::cell($row, $cols['locale']) !== ''
+                ? $this->validator->locale(self::cell($row, $cols['locale']))
+                : 'es',
+        ];
+    }
+
+    /**
+     * Analiza el CSV sin emitir nada: no crea earners, badges ni envía correos.
+     * Alimenta la pantalla de revisión previa a confirmar el lote.
+     *
+     * @return array{
+     *     total:int,
+     *     valid:int,
+     *     duplicates:int,
+     *     errors:array<int,array{line:int,email:string,error:string}>,
+     *     sample:array<int,array{line:int,name:string,email:string,status:string}>
+     * }
+     */
+    public function preview(string $csvPath, string $templateUuid, ?int $allowedCompanyId = null, int $sampleSize = 10): array
+    {
+        $handle = fopen($csvPath, 'rb');
+        if ($handle === false) {
+            throw new \RuntimeException('No se pudo abrir el CSV');
+        }
+
+        $cols   = self::columnMap($handle);
+        $total  = 0;
+        $valid  = 0;
+        $dupes  = 0;
+        $errors = [];
+        $sample = [];
+        $line   = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $line++;
+            if ($row === [null]) {
+                continue;
+            }
+            $total++;
+
+            try {
+                $data   = $this->parseRow($row, $cols, $templateUuid, $allowedCompanyId);
+                $status = $this->duplicateStatus($data['template_uuid'], $data['email']);
+                if ($status === 'duplicate') {
+                    $dupes++;
+                } else {
+                    $valid++;
+                }
+                if (count($sample) < $sampleSize) {
+                    $sample[] = [
+                        'line'   => $line,
+                        'name'   => trim($data['first_name'] . ' ' . $data['last_name']),
+                        'email'  => $data['email'],
+                        'status' => $status,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                $errors[] = ['line' => $line, 'email' => self::cell($row, $cols['email']), 'error' => $e->getMessage()];
+                if (count($sample) < $sampleSize) {
+                    $sample[] = [
+                        'line'   => $line,
+                        'name'   => trim(self::cell($row, $cols['first']) . ' ' . self::cell($row, $cols['last'])),
+                        'email'  => self::cell($row, $cols['email']),
+                        'status' => 'error',
+                    ];
+                }
+            }
+        }
+
+        fclose($handle);
+
+        return [
+            'total'      => $total,
+            'valid'      => $valid,
+            'duplicates' => $dupes,
+            'errors'     => $errors,
+            'sample'     => $sample,
+        ];
+    }
+
+    /**
+     * ¿Esta persona ya tiene este badge activo? Consulta de solo lectura: a
+     * diferencia de la emisión, NO crea el earner si todavía no existe.
+     */
+    private function duplicateStatus(string $templateUuid, string $email): string
+    {
+        $template = $this->template($templateUuid);
+        if ($template === null) {
+            return 'nuevo';
+        }
+        $earner = Earner::findByEmail($email);
+        if ($earner === null) {
+            return 'nuevo';
+        }
+
+        return IssuedBadge::hasActiveDuplicate((int) $template['id'], (int) $earner['id'])
+            ? 'duplicate'
+            : 'nuevo';
     }
 
     /**
@@ -58,67 +247,29 @@ final class CsvImportService
         $errorRows = [];
         $notifications = [];   // correos a enviar en lote al final (una sola conexión SMTP)
 
-        // Mapear columnas por NOMBRE de encabezado (acepta cualquier orden, y
-        // la columna del template es opcional: si no está, se usa el template
-        // seleccionado en el formulario).
-        $header = fgetcsv($handle);
-        $map    = [];
-        foreach (is_array($header) ? $header : [] as $i => $name) {
-            $key = strtolower(trim(str_replace("\xEF\xBB\xBF", '', (string) $name)));
-            if ($key !== '') {
-                $map[$key] = $i;
-            }
-        }
-        $find = static function (array $names) use ($map): ?int {
-            foreach ($names as $n) {
-                if (array_key_exists($n, $map)) {
-                    return $map[$n];
-                }
-            }
-            return null;
-        };
-        $iFirst  = $find(['first_name', 'nombre', 'firstname', 'first']);
-        $iLast   = $find(['last_name', 'apellido', 'lastname', 'last']);
-        $iEmail  = $find(['email', 'correo', 'e-mail', 'mail']);
-        $iLocale = $find(['locale', 'idioma']);
-        $iTpl    = $find(['badge_template_id', 'template_id', 'template', 'badge', 'uuid']);
-
-        // Empresa de cada template por UUID, cacheada (la mayoría de filas
-        // repiten el mismo template). false = el template no existe.
-        $companyOf = static function (string $uuid): int|false|null {
-            static $cache = [];
-            if (!array_key_exists($uuid, $cache)) {
-                $t = BadgeTemplate::findByUuid($uuid);
-                $cache[$uuid] = $t === null
-                    ? false
-                    : (isset($t['company_id']) ? (int) $t['company_id'] : null);
-            }
-            return $cache[$uuid];
-        };
+        $cols = self::columnMap($handle);
 
         $line = 1;
         while (($row = fgetcsv($handle)) !== false) {
             $line++;
-            if ($row === [null] || $row === false) {
+            if ($row === [null]) {
                 continue;
             }
             $total++;
 
-            $cell = static fn (?int $idx): string => ($idx !== null && isset($row[$idx])) ? trim((string) $row[$idx]) : '';
-
             try {
-                $tplUuid   = $cell($iTpl) !== '' ? $this->validator->uuid($cell($iTpl)) : $templateUuid;
-                // Aislamiento por empresa: una fila no puede emitir con un
-                // template de otra empresa (el del formulario ya fue validado).
-                if ($tplUuid !== $templateUuid && $companyOf($tplUuid) !== $allowedCompanyId) {
-                    throw new \RuntimeException('Template fuera de tu empresa');
-                }
-                $firstName = $this->validator->name($cell($iFirst));
-                $lastName  = $this->validator->name($cell($iLast));
-                $email     = $this->validator->email($cell($iEmail));
-                $locale    = $cell($iLocale) !== '' ? $this->validator->locale($cell($iLocale)) : 'es';
+                $data  = $this->parseRow($row, $cols, $templateUuid, $allowedCompanyId);
+                $email = $data['email'];
 
-                $result = $this->badges->issue($tplUuid, $email, $firstName, $lastName, $userId, 'csv', $locale);
+                $result = $this->badges->issue(
+                    $data['template_uuid'],
+                    $email,
+                    $data['first_name'],
+                    $data['last_name'],
+                    $userId,
+                    'csv',
+                    $data['locale']
+                );
 
                 if ($result['ok']) {
                     $success++;
@@ -136,7 +287,7 @@ final class CsvImportService
                 }
             } catch (\Throwable $e) {
                 $errors++;
-                $errorRows[] = ['line' => $line, 'email' => $cell($iEmail), 'error' => $e->getMessage()];
+                $errorRows[] = ['line' => $line, 'email' => self::cell($row, $cols['email']), 'error' => $e->getMessage()];
             }
 
             $db->update('bulk_import_jobs', ['processed' => $total], 'id = ?', [$jobId]);

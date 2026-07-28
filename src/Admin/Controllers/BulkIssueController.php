@@ -6,6 +6,7 @@ namespace HexBadge\Admin\Controllers;
 
 use HexBadge\Core\Auth;
 use HexBadge\Core\Controller;
+use HexBadge\Core\Database;
 use HexBadge\Core\Logger;
 use HexBadge\Core\RateLimiter;
 use HexBadge\Core\Request;
@@ -18,6 +19,10 @@ use HexBadge\Services\CsvImportService;
 /**
  * Emisión masiva por CSV (CLAUDE.md §6.3).
  *
+ * Son dos pasos: `upload` analiza el archivo y muestra qué va a pasar,
+ * `confirm` emite. Emitir es irreversible (credenciales permanentes + correos
+ * a terceros), así que nadie debería llegar ahí sin ver antes los números.
+ *
  * El lote se procesa de forma síncrona en la propia request (hasta MAX_ROWS
  * filas), incluido el envío de correos en un solo lote SMTP.
  */
@@ -26,12 +31,14 @@ final class BulkIssueController extends Controller
     private const MAX_BYTES = 5 * 1024 * 1024; // 5MB
     private const MAX_ROWS  = 2000;            // se procesa todo en línea (sin cron/worker)
     private const TEMP_DIR  = BASE_PATH . '/storage/temp/';
+    private const STALE_AGE = 86400;           // los CSV sin confirmar se limpian a las 24h
 
     public function form(Request $request): Response
     {
         if ($r = Auth::requireRole('issuer')) {
             return $r;
         }
+        $this->purgeStale();
         return $this->view('issue/bulk_form', [
             'pageTitle' => 'Emisión masiva',
             'templates' => BadgeTemplate::active($this->companyFilter($request)),
@@ -95,7 +102,15 @@ final class BulkIssueController extends Controller
         }
 
         $jobUuid = uuid4();
-        $jobId   = BulkImportJob::create([
+        // El CSV pendiente se guarda con el nombre del job: el paso de
+        // confirmación deriva la ruta del UUID, sin exponerla al cliente.
+        $pending = self::TEMP_DIR . $jobUuid . '.csv';
+        if (!rename($dest, $pending)) {
+            @unlink($dest);
+            return $this->fail($request, 'No se pudo procesar el archivo.');
+        }
+
+        $jobId = BulkImportJob::create([
             'uuid'          => $jobUuid,
             'user_id'       => $userId,
             'template_id'   => (int) $template['id'],
@@ -106,11 +121,78 @@ final class BulkIssueController extends Controller
 
         Logger::audit('bulk.uploaded', $userId, 'bulk_import_job', $jobUuid, ['rows' => $rows]);
 
-        // Se procesa todo en línea (incluye el envío de correos en un solo lote).
+        // Análisis sin efectos: no crea earners, no emite, no manda correos.
         // La empresa del template del form acota qué templates puede traer el CSV.
         $allowedCompanyId = isset($template['company_id']) ? (int) $template['company_id'] : null;
-        $summary = (new CsvImportService())->process($jobId, $dest, $templateUuid, $userId, $allowedCompanyId);
-        @unlink($dest);
+        $preview = (new CsvImportService())->preview($pending, $templateUuid, $allowedCompanyId);
+
+        return $this->view('issue/bulk_review', [
+            'pageTitle' => 'Revisar emisión masiva',
+            'job'       => ['uuid' => $jobUuid, 'filename_orig' => (string) ($file['name'] ?? 'import.csv')],
+            'template'  => $template,
+            'preview'   => $preview,
+        ]);
+    }
+
+    /**
+     * Paso 2: emite el lote ya revisado. Solo procesa jobs en estado `queued`,
+     * de forma que recargar o reenviar no vuelva a emitir.
+     */
+    public function confirm(Request $request, string $uuid): Response
+    {
+        if ($r = Auth::requireRole('issuer')) {
+            return $r;
+        }
+        $this->verifyCsrf($request);
+
+        $job = BulkImportJob::findFullByUuid($uuid);
+        if ($job === null) {
+            return $this->fail($request, 'Ese lote ya no existe.');
+        }
+        if ($resp = $this->assertCompanyAccess(isset($job['company_id']) ? (int) $job['company_id'] : null)) {
+            return $resp;
+        }
+
+        if ($job['status'] !== 'queued') {
+            Session::flash('error', 'Ese lote ya fue procesado.');
+            return $this->redirect('/admin/bulk-issue/' . (string) $job['uuid']);
+        }
+
+        // Ruta derivada del UUID del registro (no del parámetro crudo).
+        $csvPath = self::TEMP_DIR . (string) $job['uuid'] . '.csv';
+        if (!is_file($csvPath)) {
+            Session::flash('error', 'El archivo del lote expiró sin confirmarse. Subilo de nuevo.');
+            return $this->redirect('/admin/bulk-issue');
+        }
+
+        // Reclamo atómico del job: si otra request ya lo tomó, no se re-emite.
+        $claimed = Database::getInstance()->update(
+            'bulk_import_jobs',
+            ['status' => 'processing', 'started_at' => date('Y-m-d H:i:s')],
+            'id = ? AND status = ?',
+            [(int) $job['id'], 'queued']
+        );
+        if ($claimed === 0) {
+            Session::flash('error', 'Ese lote ya fue procesado.');
+            return $this->redirect('/admin/bulk-issue/' . (string) $job['uuid']);
+        }
+
+        $userId = (int) Auth::id();
+        Logger::audit('bulk.confirmed', $userId, 'bulk_import_job', (string) $job['uuid'], [
+            'rows' => (int) $job['total_rows'],
+        ]);
+
+        // Se procesa todo en línea (incluye el envío de correos en un solo lote).
+        $allowedCompanyId = isset($job['company_id']) ? (int) $job['company_id'] : null;
+        $summary = (new CsvImportService())->process(
+            (int) $job['id'],
+            $csvPath,
+            (string) $job['template_uuid'],
+            $userId,
+            $allowedCompanyId
+        );
+        @unlink($csvPath);
+
         Session::flash('success', sprintf(
             'Procesadas %d filas: %d emitidas, %d omitidas (duplicadas), %d con error.',
             $summary['total'],
@@ -119,7 +201,7 @@ final class BulkIssueController extends Controller
             $summary['errors']
         ));
 
-        return $this->redirect('/admin/bulk-issue/' . $jobUuid);
+        return $this->redirect('/admin/bulk-issue/' . (string) $job['uuid']);
     }
 
     public function show(Request $request, string $uuid): Response
@@ -129,7 +211,7 @@ final class BulkIssueController extends Controller
         }
         $job = BulkImportJob::findFullByUuid($uuid);
         if ($job === null) {
-            return Response::html('<h1>404 — Job no encontrado</h1>', 404);
+            return Response::notFound('Ese lote de emisión no existe.');
         }
         // Control de acceso: el job (y los emails de sus destinatarios) solo es
         // visible para la empresa dueña del template, o un superadmin.
@@ -190,6 +272,20 @@ final class BulkIssueController extends Controller
     {
         if (!is_dir(self::TEMP_DIR)) {
             mkdir(self::TEMP_DIR, 0750, true);
+        }
+    }
+
+    /**
+     * Borra los CSV de lotes que se subieron pero nunca se confirmaron.
+     * ponytail: barrido al entrar al formulario, sin cron. Si el volumen de
+     * subidas crece, mover a una tarea programada.
+     */
+    private function purgeStale(): void
+    {
+        foreach (glob(self::TEMP_DIR . '*.csv') ?: [] as $file) {
+            if (is_file($file) && (time() - (int) filemtime($file)) > self::STALE_AGE) {
+                @unlink($file);
+            }
         }
     }
 }

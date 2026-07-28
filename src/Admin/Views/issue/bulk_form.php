@@ -29,7 +29,8 @@ use HexBadge\Core\CSRF;
     <label for="csv">Archivo CSV * (máx 5MB, hasta 2.000 filas por archivo)</label>
     <input type="file" id="csv" name="csv" accept=".csv,text/csv" required>
 
-    <button type="submit" class="btn btn-primary btn-block">Subir y procesar</button>
+    <button type="submit" class="btn btn-primary btn-block">Subir y revisar</button>
+    <small class="muted" style="display:block;margin-top:.4rem;text-align:center">Vas a ver un resumen y confirmar antes de que se emita nada.</small>
 </form>
 
 <div class="muted" style="margin-top:1rem;font-size:.85rem">
@@ -58,7 +59,7 @@ Ana,Gómez,ana@example.com</pre>
                 <td><?= e((string) $j['total_rows']) ?></td>
                 <td><?= e((string) $j['success_count']) ?></td>
                 <td><?= e((string) $j['error_count']) ?></td>
-                <td><span class="badge-status status-<?= $j['status'] === 'done' ? 'accepted' : ($j['status'] === 'failed' ? 'revoked' : 'pending') ?>"><?= e((string) $j['status']) ?></span></td>
+                <td><span class="badge-status status-<?= $j['status'] === 'done' ? 'accepted' : ($j['status'] === 'failed' ? 'revoked' : 'pending') ?>"><?= e(status_label((string) $j['status'])) ?></span></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
