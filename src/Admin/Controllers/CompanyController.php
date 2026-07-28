@@ -87,7 +87,7 @@ final class CompanyController extends Controller
         $cid = Auth::companyId();
         $company = $cid !== null ? Company::find($cid) : null;
         if ($company === null) {
-            return Response::html('<h1>No tenés una empresa asignada.</h1>', 404);
+            return Response::notFound('No tenés una empresa asignada.');
         }
         return $this->view('companies/form', [
             'pageTitle' => 'Mi empresa',
@@ -103,7 +103,7 @@ final class CompanyController extends Controller
         }
         $company = Company::findByUuid($uuid);
         if ($company === null) {
-            return Response::html('<h1>404 — Empresa no encontrada</h1>', 404);
+            return Response::notFound('Esa empresa no existe.');
         }
         if ($r = $this->assertCompanyAccess((int) $company['id'])) {
             return $r;
@@ -124,7 +124,7 @@ final class CompanyController extends Controller
 
         $company = Company::findByUuid($uuid);
         if ($company === null) {
-            return Response::html('<h1>404 — Empresa no encontrada</h1>', 404);
+            return Response::notFound('Esa empresa no existe.');
         }
         if ($r = $this->assertCompanyAccess((int) $company['id'])) {
             return $r;
@@ -170,7 +170,7 @@ final class CompanyController extends Controller
 
         $company = Company::findByUuid($uuid);
         if ($company === null) {
-            return Response::html('<h1>404</h1>', 404);
+            return Response::notFound();
         }
         if ($r = $this->assertCompanyAccess((int) $company['id'])) {
             return $r;

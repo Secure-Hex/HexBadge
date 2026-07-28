@@ -97,7 +97,7 @@ final class FontController extends Controller
         }
         $path = Font::pathFor((int) $id);
         if ($path === null) {
-            return Response::html('<h1>404</h1>', 404);
+            return Response::notFound();
         }
         $bytes = (string) @file_get_contents($path);
         $ctype = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'otf' ? 'font/otf' : 'font/ttf';

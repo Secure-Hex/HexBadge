@@ -6,7 +6,7 @@
 $j = $job;
 ?>
 <h1>Emisión masiva — <?= e((string) $j['filename_orig']) ?></h1>
-<p><span class="badge-status status-<?= $j['status'] === 'done' ? 'accepted' : ($j['status'] === 'failed' ? 'revoked' : 'pending') ?>"><?= e((string) $j['status']) ?></span></p>
+<p><span class="badge-status status-<?= $j['status'] === 'done' ? 'accepted' : ($j['status'] === 'failed' ? 'revoked' : 'pending') ?>"><?= e(status_label((string) $j['status'])) ?></span></p>
 
 <div class="cards">
     <div class="card"><span class="card-value"><?= e((string) $j['total_rows']) ?></span><span class="card-label">Filas totales</span></div>

@@ -140,7 +140,7 @@ final class UserController extends Controller
         $user = User::findByUuid($uuid);
         if ($user === null || $user['role'] === 'superadmin') {
             // El superadmin es global: no se le asignan empresas.
-            return Response::html('<h1>404 — Usuario no encontrado</h1>', 404);
+            return Response::notFound('Ese usuario no existe.');
         }
         if ($resp = $this->assertCanManageUser($user)) {
             return $resp;
@@ -165,7 +165,7 @@ final class UserController extends Controller
         $this->verifyCsrf($request);
         $user = User::findByUuid($uuid);
         if ($user === null || $user['role'] === 'superadmin') {
-            return Response::html('<h1>404 — Usuario no encontrado</h1>', 404);
+            return Response::notFound('Ese usuario no existe.');
         }
         if ($resp = $this->assertCanManageUser($user)) {
             return $resp;

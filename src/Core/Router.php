@@ -87,6 +87,6 @@ final class Router
             }
         }
 
-        return Response::html('<h1>404 — Página no encontrada</h1>', 404);
+        return Response::notFound('No encontramos esta página.');
     }
 }

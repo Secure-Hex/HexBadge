@@ -19,8 +19,8 @@ $e = $earner;
         <?php foreach ($badges as $b): ?>
             <tr>
                 <td><a href="/admin/badges/<?= e((string) $b['uuid']) ?>"><?= e((string) $b['template_name']) ?></a></td>
-                <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e((string) $b['status']) ?></span></td>
-                <td class="muted"><?= e((string) $b['issued_at']) ?></td>
+                <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e(status_label((string) $b['status'])) ?></span></td>
+                <td class="muted"><?= e(date_long((string) $b['issued_at'])) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

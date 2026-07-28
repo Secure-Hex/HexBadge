@@ -54,8 +54,8 @@ $base   = '/admin/templates/' . e((string) $t['uuid']) . '/certificates';
                     <td><input type="checkbox" name="badges[]" value="<?= e((string) $b['uuid']) ?>" style="width:auto"></td>
                     <td><?= e((string) $b['earner_name']) ?></td>
                     <td class="muted"><?= e((string) $b['earner_email']) ?></td>
-                    <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e((string) $b['status']) ?></span></td>
-                    <td><?= e((string) $b['issued_at']) ?></td>
+                    <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e(status_label((string) $b['status'])) ?></span></td>
+                    <td><?= e(date_long((string) $b['issued_at'])) ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

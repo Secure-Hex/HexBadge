@@ -29,7 +29,7 @@ final class CertificateController
         if ($badge === null
             || ($badge['status'] ?? '') === 'revoked'
             || !CertificateService::hasCertificate($badge)) {
-            return Response::html('<h1>404 — Certificado no disponible</h1>', 404);
+            return Response::notFound('Este certificado no está disponible.');
         }
 
         $path = (new CertificateService())->generate($uuid);

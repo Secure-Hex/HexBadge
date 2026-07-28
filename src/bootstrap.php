@@ -320,3 +320,44 @@ function asset(string $path): string
 
     return is_file($file) ? $rel . '?v=' . filemtime($file) : $rel;
 }
+
+/**
+ * Etiqueta en español de los enums de estado que se muestran en pantalla
+ * (badges y jobs de importación). Sin esto se filtra el valor crudo de la base
+ * a la interfaz, y termina conviviendo "Pendiente" en un filtro con "pending"
+ * en la columna de al lado.
+ */
+function status_label(string $status): string
+{
+    return match ($status) {
+        'pending'    => 'Pendiente',
+        'accepted'   => 'Aceptado',
+        'rejected'   => 'Rechazado',
+        'revoked'    => 'Revocado',
+        'queued'     => 'En espera',
+        'processing' => 'Procesando',
+        'done'       => 'Completado',
+        'failed'     => 'Con error',
+        default      => $status,
+    };
+}
+
+/**
+ * Fecha legible en español a partir de un datetime de MySQL: "26 de junio de
+ * 2026". Para lo que ve una persona; los timestamps con segundos son ruido.
+ * Devuelve el valor original si no se puede interpretar.
+ */
+function date_long(?string $sqlDate): string
+{
+    if ($sqlDate === null || trim($sqlDate) === '') {
+        return '';
+    }
+    $ts = strtotime($sqlDate);
+    if ($ts === false) {
+        return $sqlDate;
+    }
+    $months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+               'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    return sprintf('%d de %s de %d', (int) date('j', $ts), $months[(int) date('n', $ts) - 1], (int) date('Y', $ts));
+}

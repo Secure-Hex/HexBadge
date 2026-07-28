@@ -87,9 +87,9 @@ $sortLink = function (string $key, string $label) use ($baseParams, $sort, $dir)
                 <td><?= e((string) $b['template_name']) ?></td>
                 <?php if ($showCompany): ?><td class="muted"><?= e((string) ($b['company_name'] ?? '—')) ?></td><?php endif; ?>
                 <td><?= e((string) $b['issued_via']) ?></td>
-                <td><?= e((string) $b['issued_at']) ?></td>
-                <td class="muted"><?= $b['accepted_at'] !== null ? e((string) $b['accepted_at']) : '—' ?></td>
-                <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e((string) $b['status']) ?></span></td>
+                <td><?= e(date_long((string) $b['issued_at'])) ?></td>
+                <td class="muted"><?= $b['accepted_at'] !== null ? e(date_long((string) $b['accepted_at'])) : '—' ?></td>
+                <td><span class="badge-status status-<?= e((string) $b['status']) ?>"><?= e(status_label((string) $b['status'])) ?></span></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

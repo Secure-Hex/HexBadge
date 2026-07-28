@@ -55,6 +55,28 @@ final class Response
         return new self($body, $status, ['Content-Type' => 'text/plain; charset=UTF-8']);
     }
 
+    /**
+     * Página 404 con la identidad del sitio y una salida. Un <h1> suelto sin
+     * estilos ni enlace deja a la persona sin nada que hacer.
+     *
+     * Es autónoma a propósito: los layouts necesitan sesión y contexto de vista
+     * que en un 404 pueden no existir.
+     */
+    public static function notFound(string $what = 'No encontramos lo que buscabas.'): self
+    {
+        $body = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            . '<title>No encontrado</title>'
+            . '<link rel="stylesheet" href="/assets/css/app.css"></head><body>'
+            . '<main class="auth-wrap"><div class="auth-card" style="text-align:center">'
+            . '<h1 style="font-size:2.6rem;margin-bottom:.25rem">404</h1>'
+            . '<p class="muted">' . e($what) . '</p>'
+            . '<a class="btn btn-primary" href="/">Volver al inicio</a>'
+            . '</div></main></body></html>';
+
+        return self::html($body, 404);
+    }
+
     public function status(): int
     {
         return $this->status;

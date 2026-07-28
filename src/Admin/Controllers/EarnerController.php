@@ -97,7 +97,7 @@ final class EarnerController extends Controller
         }
         $earner = Earner::findByUuid($uuid);
         if ($earner === null) {
-            return Response::html('<h1>404 — Receptor no encontrado</h1>', 404);
+            return Response::notFound('Ese receptor no existe.');
         }
 
         // Un sub-admin solo ve los badges de SU empresa (la persona es global).
@@ -117,7 +117,7 @@ final class EarnerController extends Controller
 
         // Si un sub-admin abre un receptor que no tiene badges de su empresa → no existe para él.
         if ($badges === [] && !Auth::isSuperadmin()) {
-            return Response::html('<h1>404 — Receptor no encontrado</h1>', 404);
+            return Response::notFound('Ese receptor no existe.');
         }
 
         return $this->view('earner/show', [

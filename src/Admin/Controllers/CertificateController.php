@@ -30,7 +30,7 @@ final class CertificateController extends Controller
         }
         $template = BadgeTemplate::findByUuid($uuid);
         if ($template === null) {
-            return Response::html('<h1>404 — Template no encontrado</h1>', 404);
+            return Response::notFound('Ese template no existe.');
         }
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;
@@ -69,7 +69,7 @@ final class CertificateController extends Controller
 
         $template = BadgeTemplate::findByUuid($uuid);
         if ($template === null) {
-            return Response::html('<h1>404</h1>', 404);
+            return Response::notFound();
         }
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;
@@ -103,7 +103,7 @@ final class CertificateController extends Controller
         }
         $template = BadgeTemplate::findByUuid($uuid);
         if ($template === null) {
-            return Response::html('<h1>404 — Template no encontrado</h1>', 404);
+            return Response::notFound('Ese template no existe.');
         }
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;
@@ -144,7 +144,7 @@ final class CertificateController extends Controller
 
         $template = BadgeTemplate::findByUuid($uuid);
         if ($template === null) {
-            return Response::html('<h1>404</h1>', 404);
+            return Response::notFound();
         }
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;
@@ -217,7 +217,7 @@ final class CertificateController extends Controller
 
         $template = BadgeTemplate::findByUuid($uuid);
         if ($template === null) {
-            return Response::html('<h1>404</h1>', 404);
+            return Response::notFound();
         }
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;

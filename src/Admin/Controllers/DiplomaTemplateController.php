@@ -255,7 +255,7 @@ final class DiplomaTemplateController extends Controller
     {
         $diploma = DiplomaTemplate::findByUuid($uuid);
         if ($diploma === null) {
-            return Response::html('<h1>404 — Plantilla no encontrada</h1>', 404);
+            return Response::notFound('Esa plantilla no existe.');
         }
         if ($r = $this->assertCompanyAccess(isset($diploma['company_id']) ? (int) $diploma['company_id'] : null)) {
             return $r;

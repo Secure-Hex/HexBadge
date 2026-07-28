@@ -67,7 +67,7 @@ final class BadgeController extends Controller
         }
         $badge = IssuedBadge::findFullByUuid($uuid);
         if ($badge === null) {
-            return Response::html('<h1>404 — Badge no encontrado</h1>', 404);
+            return Response::notFound('Ese badge no existe.');
         }
         if ($r = $this->assertCompanyAccess(isset($badge['company_id']) ? (int) $badge['company_id'] : null)) {
             return $r;
@@ -126,7 +126,7 @@ final class BadgeController extends Controller
     {
         $badge = IssuedBadge::findFullByUuid($uuid);
         if ($badge === null) {
-            return Response::html('<h1>404 — Badge no encontrado</h1>', 404);
+            return Response::notFound('Ese badge no existe.');
         }
         return $this->assertCompanyAccess(isset($badge['company_id']) ? (int) $badge['company_id'] : null);
     }
