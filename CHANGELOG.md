@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.0] - 2026-07-28
+### Nuevas funcionalidades
+- PNG gemelo para el correo y las vistas previas de redes (4b82cf4)
+
 ## [1.3.0] - 2026-07-28
 ### Nuevas funcionalidades
 - relieve, materia, placa de fondo y fusión de capas (cfacd70)
