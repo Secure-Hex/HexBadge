@@ -14,7 +14,8 @@
     resize();
     window.addEventListener('resize', resize);
 
-    var colors = ['#1565d8', '#25d366', '#f5b301', '#e8467c', '#7c4dff'];
+    // Paleta del sistema: primario, su tono suave, éxito y advertencia.
+    var colors = ['#1565d8', '#0e459b', '#7aa2ff', '#1a7f43', '#a55a09'];
     var pieces = [];
     for (var i = 0; i < 120; i++) {
         pieces.push({

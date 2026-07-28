@@ -267,13 +267,8 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .pending-info strong{font-size:.95rem;line-height:1.2}
 .pending-info .muted{font-size:.8rem}
 
-.verify-page{min-height:100vh;background:radial-gradient(1100px 460px at 50% -8%,var(--primary-soft),transparent),var(--bg);padding:2.5rem 1.25rem}
-.verify-card{max-width:560px;margin:0 auto;background:var(--surface);border:1px solid var(--border);
   border-radius:20px;box-shadow:var(--shadow-lg);padding:2.25rem 2rem;text-align:center}
-.verify-card .badge-img{width:168px;height:168px;object-fit:contain;
   background:var(--surface-2);border:1px solid var(--border);border-radius:18px;padding:14px}
-.verify-meta{text-align:left;margin:1.25rem 0}
-.verify-meta .table{box-shadow:none;margin:.5rem 0}
 
 /* ============================================================
    Página pública (portal earner): topbar simple
@@ -591,71 +586,195 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .totp-cancel{text-align:center;margin:1rem 0 0}
 
 /* ---- Página de verificación pública ---- */
-.verify-shell{max-width:920px;margin:0 auto;padding:2rem 1.25rem 3rem}
-
-/* Veredicto. Quien abre esta página vino a preguntar una sola cosa; la
-   respuesta va primera, grande, y sin depender solo del color. */
-.verdict{display:flex;align-items:flex-start;gap:.9rem;margin:0 0 1.5rem;
-  padding:1.15rem 1.35rem;border:1px solid;border-radius:var(--radius)}
-.verdict svg{flex:none;width:30px;height:30px;fill:currentColor;margin-top:.1rem}
-.verdict strong{display:block;font-size:1.5rem;line-height:1.15;letter-spacing:-.02em}
-.verdict p{margin:.25rem 0 0;font-size:.92rem;line-height:1.5;color:inherit;opacity:.92}
-.verdict-valid{background:var(--success-soft);border-color:#a9dcbb;color:#12693a}
-.verdict-revoked{background:var(--error-soft);border-color:#f1c4c4;color:#8f1c1c}
-.verdict-expired{background:var(--warn-soft);border-color:#eccfa4;color:#7d4406}
-
-/* Persona que la obtuvo: contexto, no protagonista. */
-.owner-card{display:flex;align-items:center;gap:1rem;margin-top:1.5rem;padding:1.1rem 1.35rem;
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
-.owner-avatar{flex:none;width:56px;height:56px;border-radius:50%;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:1.3rem}
-.owner-avatar img{width:100%;height:100%;object-fit:cover}
-.owner-id{min-width:0}
-.owner-id h2{margin:0;font-size:1.05rem;letter-spacing:-.01em}
-.owner-bio{margin:.15rem 0 0;font-size:.85rem;color:var(--muted);line-height:1.45}
-.owner-links{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin:.4rem 0 0;font-size:.85rem}
-.owner-social{display:inline-flex;color:var(--muted)}
-.owner-social svg{width:17px;height:17px;fill:currentColor}
-.owner-social:hover{color:var(--brand,var(--primary))}
-.badge-verify{display:grid;grid-template-columns:280px 1fr;overflow:hidden;padding:0}
-.badge-verify-media{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem 1.5rem;background:var(--surface-2);border-right:1px solid var(--border)}
-.badge-verify-media img{width:200px;height:200px;object-fit:contain}
-.badge-verify-media .badge-status{font-size:.9rem;padding:.35rem .9rem}
-.bv-logo{width:100%;display:flex;justify-content:center;align-items:center;margin-bottom:.25rem}
-.bv-logo img{max-height:80px;max-width:100%;width:auto;height:auto;object-fit:contain}
-.badge-verify-body{padding:1.75rem 1.85rem}
-.bv-eyebrow{text-transform:uppercase;letter-spacing:.07em;font-size:.72rem;font-weight:700;color:var(--primary);margin:0 0 .15rem}
-.badge-verify-body h1{font-size:1.6rem;margin:0 0 .25rem;letter-spacing:-.02em}
-.bv-grantee{color:var(--text-2);margin:0 0 1rem}
-.bv-desc{color:var(--text-2);line-height:1.6;margin:.5rem 0}
-.bv-block{margin:1.25rem 0;padding-top:1.1rem;border-top:1px solid var(--border)}
-.bv-block h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 .4rem}
-.bv-block p{margin:.25rem 0;color:var(--text-2);line-height:1.55}
-.bv-tags{display:flex;flex-wrap:wrap;gap:.4rem}
-.meta-list{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.25rem;margin:1.25rem 0;padding-top:1.1rem;border-top:1px solid var(--border)}
-.meta-list dt{color:var(--muted);font-weight:600;font-size:.85rem}
-.meta-list dd{margin:0;color:var(--text);font-size:.9rem}
-.bv-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;color:var(--text-2);word-break:break-all}
-.bv-actions{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.75rem}
-.bv-row{display:flex;flex-wrap:wrap;gap:.6rem}
 .btn-linkedin,.btn-linkedin-outline{display:inline-flex;align-items:center;gap:.5rem}
 .btn-linkedin svg,.btn-linkedin-outline svg{width:16px;height:16px;fill:currentColor;flex:none}
 .btn-linkedin{background:#0A66C2;border-color:#0A66C2;color:#fff}
 .btn-linkedin:hover{background:#08538f;border-color:#08538f;color:#fff}
 .btn-linkedin-outline{background:var(--surface);border-color:#0A66C2;color:#0A66C2}
 .btn-linkedin-outline:hover{background:#eaf2fb;border-color:#0A66C2;color:#0A66C2}
-.verify-foot{text-align:center;color:var(--muted);font-size:.78rem;margin:1.5rem 0 0}
-@media(max-width:680px){
-  .badge-verify{grid-template-columns:1fr}
-  .badge-verify-media{border-right:0;border-bottom:1px solid var(--border)}
-}
 
 @media(max-width:560px){
   .profile-cover{height:130px}
   .profile-avatar{width:88px;height:88px;margin-top:-44px}
   .profile-id{padding:0 1.25rem 1.25rem}
 }
+/* ============================================================
+   Credencial pública: la pieza y su cartela
+   Una vitrina (campo hundido, badge asentado sobre su sombra) junto a una
+   cartela de catálogo (etiquetas en versalitas con sus valores). El objeto
+   lleva la mirada; la cartela responde quién, cuándo y contra qué registro.
+   ============================================================ */
+.cred-page{min-height:100vh;background:var(--bg)}
+
+/* Franja de estado: cruza el ancho antes que la pieza. La palabra manda,
+   el color solo acompaña. */
+.cred-state{border-bottom:1px solid var(--border);background:var(--surface)}
+.cred-state-inner{max-width:64rem;margin:0 auto;display:flex;align-items:flex-start;gap:.7rem;
+  padding:1rem 1.5rem}
+.cred-state svg{flex:none;width:22px;height:22px;fill:currentColor;margin-top:.1rem}
+.cred-state p{margin:0;font-size:.95rem;line-height:1.45}
+.cred-state strong{font-weight:700}
+.cred-state span{color:var(--text-2)}
+.is-valid   .cred-state{background:var(--success-soft);border-bottom-color:#a9dcbb;color:#12693a}
+.is-revoked .cred-state{background:var(--error-soft);border-bottom-color:#f1c4c4;color:#8f1c1c}
+.is-expired .cred-state{background:var(--warn-soft);border-bottom-color:#eccfa4;color:#7d4406}
+
+.cred{max-width:64rem;margin:0 auto;padding:2rem 1.5rem 3.5rem}
+
+/* --- La pieza y su cartela, una sola unidad --- */
+.cred-exhibit{display:grid;grid-template-columns:minmax(0,22rem) minmax(0,1fr);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow-md);overflow:hidden}
+
+/* Vitrina: fondo hundido y luz cenital para despegar la pieza del papel. */
+.cred-stage{position:relative;display:flex;align-items:center;justify-content:center;
+  padding:3rem 2rem;border-right:1px solid var(--border);
+  /* Campo hundido: se aclara al centro y cae hacia los bordes, con la sombra
+     interior del canto. Al revés leía como una superficie elevada. */
+  background:radial-gradient(115% 85% at 50% 42%, #f7f9fc 0%, #e9eef6 62%, #dfe6f1 100%);
+  box-shadow:inset 0 14px 26px -20px rgba(15,27,46,.5),
+             inset 0 -14px 26px -20px rgba(15,27,46,.35);
+}
+.cred-issuer-mark{position:absolute;top:1.1rem;left:1.25rem;max-width:96px;max-height:34px;
+  width:auto;height:auto;object-fit:contain;opacity:.9}
+/* La pieza va montada, no pegada: casi todas las imágenes de badge traen su
+   propio fondo opaco, y sin montaje el rectángulo del archivo se ve recortado
+   sobre el campo, que es justo el efecto de estampa escaneada. */
+.cred-piece{position:relative;margin:0;display:flex;align-items:center;justify-content:center;
+  padding:1.35rem;background:var(--surface);border:1px solid rgba(15,27,46,.08);
+  border-radius:10px;
+  box-shadow:0 14px 28px -12px rgba(15,27,46,.28),0 2px 6px rgba(15,27,46,.08)}
+.cred-piece img{position:relative;z-index:1;display:block;
+  max-width:min(14rem,100%);max-height:14rem;width:auto;height:auto;object-fit:contain}
+
+/* Una credencial revocada o vencida no se expone como una vigente: la pieza
+   pierde color y, si fue revocada, lleva su sello encima. El texto de la
+   franja ya lo dice; esto evita que la imagen contradiga a la palabra. */
+.is-revoked .cred-piece img{filter:grayscale(.9);opacity:.5}
+.is-expired .cred-piece img{filter:grayscale(.45);opacity:.75}
+.is-revoked .cred-stage::after{content:"Revocada";position:absolute;left:50%;top:50%;
+  translate:-50% -50%;rotate:-9deg;z-index:2;pointer-events:none;
+  padding:.35rem 1.15rem;border:2px solid #8f1c1c;border-radius:4px;
+  background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(15,27,46,.14);
+  color:#8f1c1c;font-size:1rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.22em}
+
+/* Cartela --- */
+.cred-card{padding:2.25rem 2.25rem 2rem;min-width:0}
+/* El autor de la pieza encabeza su ficha; el título va debajo. */
+.cred-issuer{margin:0 0 .35rem;font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--primary)}
+.cred-card h1{margin:0 0 .3rem;font-size:1.75rem;line-height:1.2;letter-spacing:-.025em}
+.cred-holder{margin:0;color:var(--text-2);font-size:1rem}
+.cred-holder strong{color:var(--text);font-weight:650}
+.cred-desc{margin:1rem 0 0;color:var(--text-2);line-height:1.6;max-width:60ch}
+
+/* Los campos son la gramática de la cartela: etiqueta y valor, fila por fila. */
+.cred-fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0;
+  margin:1.5rem 0 0;padding-top:1.25rem;border-top:1px solid var(--border)}
+.cred-fields dt{padding:.55rem 1.5rem .55rem 0;font-size:.68rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.09em;color:var(--muted);white-space:nowrap}
+.cred-fields dd{margin:0;padding:.55rem 0;font-size:.95rem;color:var(--text);min-width:0;
+  overflow-wrap:anywhere}
+.cred-fields dt+dd{border-top:0}
+.cred-fields dt:not(:first-of-type),
+.cred-fields dd:not(:first-of-type){border-top:1px solid var(--border)}
+.cred-fields code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
+  color:var(--text-2);background:none;border:0;padding:0}
+
+.cred-registry{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .75rem;
+  margin:1.1rem 0 0;padding:.7rem .85rem;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-sm)}
+.cred-registry span{font-size:.63rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.11em;color:var(--muted)}
+.cred-registry code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.8rem;color:var(--text-2);background:none;border:0;padding:0;overflow-wrap:anywhere}
+.cred-copy{flex:none;padding:.28rem .6rem;border:1px solid var(--border-strong);
+  border-radius:var(--radius-sm);background:var(--surface);color:var(--text-2);
+  font:inherit;font-size:.75rem;font-weight:600;cursor:pointer;
+  transition:border-color .12s,color .12s}
+.cred-copy:hover{border-color:var(--primary);color:var(--primary)}
+.cred-copy:focus-visible{outline:none;box-shadow:var(--ring)}
+
+.cred-actions{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.25rem;padding-top:1.25rem;
+  border-top:1px solid var(--border)}
+
+/* --- Ficha extendida --- */
+.cred-detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:1.5rem 2.5rem;
+  margin-top:1.75rem}
+.cred-detail-block{padding:1.4rem 0 0;border-top:1px solid var(--border)}
+.cred-detail-block h2{margin:0 0 .8rem;font-size:.68rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--muted)}
+.cred-detail-block p{margin:0 0 .5rem;color:var(--text-2);line-height:1.6}
+.cred-detail-block p:last-child{margin-bottom:0}
+.cred-tags{display:flex;flex-wrap:wrap;gap:.4rem}
+
+/* --- Quién la obtuvo --- */
+.cred-holder-card{display:flex;align-items:center;gap:1rem;margin-top:1.5rem;
+  padding:1.4rem 0 0;border-top:1px solid var(--border)}
+.cred-holder-avatar{flex:none;width:56px;height:56px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:1.3rem}
+.cred-holder-avatar img{width:100%;height:100%;object-fit:cover}
+.cred-holder-id{min-width:0}
+.cred-holder-id h2{margin:0;font-size:1.05rem;letter-spacing:-.01em}
+.cred-holder-id>p{margin:.15rem 0 0;font-size:.85rem;color:var(--muted);line-height:1.45}
+.cred-holder-links{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;
+  margin:.4rem 0 0;font-size:.85rem}
+.cred-social{display:inline-flex;color:var(--muted)}
+.cred-social svg{width:17px;height:17px;fill:currentColor}
+.cred-social:hover{color:var(--brand,var(--primary))}
+
+/* --- Compartir (solo quien la obtuvo) --- */
+.cred-share{margin-top:1.5rem;padding:1.4rem 0 0;border-top:1px solid var(--border)}
+.cred-share h2{margin:0 0 .8rem;font-size:.68rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--muted)}
+.cred-share-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+.cred-share-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .8rem;
+  border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);
+  color:var(--text-2);font:inherit;font-size:.85rem;font-weight:600;line-height:1;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s}
+.cred-share-btn:hover{background:var(--brand,var(--primary));border-color:var(--brand,var(--primary));
+  color:#fff;text-decoration:none}
+.cred-share-btn svg{width:17px;height:17px;fill:currentColor;flex:none}
+.cred-embed{margin-top:.9rem}
+.cred-embed summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
+.cred-embed textarea{width:100%;max-width:none;min-height:70px;margin:.6rem 0;
+  font-family:ui-monospace,monospace;font-size:.72rem;resize:vertical}
+
+.cred-foot{text-align:center;color:var(--muted);font-size:.78rem;margin:1.75rem 0 0}
+
+/* Un solo momento de entrada: la pieza se asienta y la cartela la sigue.
+   Arranca desde el estado ya visible y anima solo la posición: si la
+   animación no corre, el contenido está igual de presente. */
+@media (prefers-reduced-motion:no-preference){
+  .cred-piece{animation:cred-settle .7s cubic-bezier(.2,.7,.3,1)}
+  .cred-card{animation:cred-rise .55s cubic-bezier(.2,.7,.3,1)}
+}
+@keyframes cred-settle{from{transform:translateY(-16px) scale(.955)}}
+@keyframes cred-rise{from{transform:translateY(10px)}}
+
+@media (max-width:760px){
+  .cred-exhibit{grid-template-columns:1fr}
+  .cred-stage{border-right:0;border-bottom:1px solid var(--border);padding:2.5rem 1.5rem}
+  .cred-card{padding:1.6rem 1.4rem 1.5rem}
+  .cred-card h1{font-size:1.45rem}
+  .cred{padding:1.25rem 1rem 2.5rem}
+  .cred-state-inner{padding:.9rem 1rem}
+  /* Etiqueta arriba, valor debajo: en una columna angosta la rejilla de dos
+     columnas dejaba los valores largos en una tira de dos caracteres. */
+  .cred-fields{grid-template-columns:1fr;gap:0}
+  .cred-fields dt{padding:.7rem 0 .1rem;border-top:1px solid var(--border)}
+  .cred-fields dt:first-of-type{border-top:0;padding-top:0}
+  .cred-fields dd{padding:0 0 .2rem;border-top:0!important}
+  .cred-actions .btn{flex:1 1 100%}
+  .cred-holder-card{align-items:flex-start}
+  /* En una columna angosta, etiqueta y botón a los lados dejaban el número
+     partido en una tira vertical de cinco líneas. */
+  .cred-registry{flex-direction:column;align-items:flex-start;gap:.45rem}
+  .cred-registry code{flex:none;width:100%}
+}
+
 /* --- "Acerca de" (modal :target, sin JS) --- */
 .about-btn{display:inline-flex;align-items:center;gap:.3rem;background:none;border:0;color:inherit;opacity:.75;text-decoration:none;font-size:.8rem;cursor:pointer}
 .about-btn:hover{opacity:1;text-decoration:underline}

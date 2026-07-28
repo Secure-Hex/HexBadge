@@ -1,6 +1,22 @@
 <?php
 /**
- * Página pública de verificación (standalone, sin nav de admin).
+ * Página pública de verificación de una credencial (standalone, sin nav).
+ *
+ * THESIS: la credencial es una pieza catalogada, no un diploma en pantalla.
+ *   Rechaza la tarjeta partida imagen/texto que shippea toda la categoría.
+ * OWN-WORLD: el sistema de HexBadge sin cambios (Public Sans, azul SecureHex,
+ *   tokens) puesto al servicio de dos materiales: una vitrina —campo hundido,
+ *   badge asentado sobre su sombra— y una cartela —columna de etiquetas en
+ *   versalitas con sus valores, como la ficha de una pieza expuesta.
+ * STORY: quien llega dudando lee el estado, ve la pieza, y encuentra en la
+ *   cartela quién la otorgó, cuándo, contra qué registro se comprobó y con qué
+ *   número de registro; se va sabiendo que es cierto.
+ * FIRST VIEWPORT: franja de estado cruzando el ancho; debajo, dos columnas:
+ *   la vitrina con el badge a la izquierda, la cartela a la derecha abriendo
+ *   con el nombre de la credencial y a quién se otorgó. Acciones al pie de la
+ *   cartela. En móvil: estado, vitrina, cartela.
+ * FORM: pieza expuesta con cartela de catálogo; #6 de la lista ordenada por
+ *   resonancia, sin staging de challenger. Seed ea82af28.
  *
  * @var string              $appName
  * @var array<string,mixed> $badge
@@ -18,40 +34,37 @@ $b = $badge;
 $status     = (string) $b['status'];
 $earnerName = (string) ($b['display_name'] ?? trim((string) $b['first_name'] . ' ' . (string) $b['last_name']));
 $initial    = strtoupper(mb_substr($earnerName !== '' ? $earnerName : '?', 0, 1));
+$issuer     = (string) $b['issuer_name'];
+$issuedOn   = date_long((string) $b['issued_at']);
 
-[$stateLabel, $stateClass] = match (true) {
-    $status === 'revoked' => ['Revocado', 'status-revoked'],
-    $expired              => ['Expirado', 'status-pending'],
-    default               => ['Válido', 'status-accepted'],
-};
-
-// Veredicto: la respuesta que vino a buscar quien abre esta página. Va primero
-// y en grande; todo lo demás es contexto.
-$issuer   = (string) $b['issuer_name'];
-$issuedOn = date_long((string) $b['issued_at']);
-[$verdictClass, $verdictTitle, $verdictDetail, $verdictIcon] = match (true) {
+// Estado de la pieza. La palabra manda; el color solo acompaña.
+[$stateClass, $stateLabel, $stateNote, $stateIcon] = match (true) {
     $status === 'revoked' => [
-        'verdict-revoked',
+        'is-revoked',
         'Credencial revocada',
-        $issuer . ' revocó esta credencial'
-            . (!empty($b['revoke_reason']) ? ': ' . (string) $b['revoke_reason'] : '.')
+        $issuer . ' la revocó'
+            . (!empty($b['revoke_reason'])
+                ? ': ' . rtrim((string) $b['revoke_reason'], " .") . '.'
+                : '.')
             . ' Ya no acredita el logro.',
         'M12 2a10 10 0 100 20 10 10 0 000-20zm4.9 13.5L15.5 16.9 12 13.4l-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5 1.4-1.4 3.5 3.5 3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5z',
     ],
     $expired => [
-        'verdict-expired',
+        'is-expired',
         'Credencial expirada',
-        'Emitida por ' . $issuer . ' el ' . $issuedOn . '. Venció el ' . date_long((string) $b['expires_at']) . '.',
+        'Venció el ' . date_long((string) $b['expires_at']) . '. Fue válida cuando se emitió.',
         'M12 2a10 10 0 100 20 10 10 0 000-20zm1 5v5.6l4 2.4-.8 1.3-4.7-2.8V7z',
     ],
     default => [
-        'verdict-valid',
+        'is-valid',
         'Credencial válida',
-        'Emitida por ' . $issuer . ' el ' . $issuedOn . ', verificada contra el registro de HexBadge.',
+        'Comprobada contra el registro de ' . $appName . ' el ' . date_long(date('Y-m-d'))
+            . ' a las ' . date('H:i') . '.',
         'M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.3l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z',
     ],
 };
-$ogDescription = $earnerName . ' obtuvo el badge "' . (string) $b['template_name'] . '" emitido por ' . (string) $b['issuer_name'] . '.';
+
+$ogDescription = $earnerName . ' obtuvo el badge "' . (string) $b['template_name'] . '" emitido por ' . $issuer . '.';
 
 // Redes del receptor (solo las cargadas) + logo de LinkedIn para los botones.
 $networks = [];
@@ -109,132 +122,122 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
     <meta name="twitter:image" content="<?= e($imageUrl) ?>">
 
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-    <style>
-    .share-block{margin-top:1.1rem}
-    .share-block h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 .55rem}
-    .share-grid{display:flex;flex-wrap:wrap;gap:.5rem}
-    .share-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--brand,#1a2233);font:inherit;font-size:.85rem;line-height:1;cursor:pointer;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
-    .share-btn:hover{background:var(--brand,#1a2233);color:#fff;border-color:var(--brand,#1a2233)}
-    .share-btn svg{width:18px;height:18px;fill:currentColor;flex:none}
-    .share-embed{margin-top:.7rem}
-    .share-embed summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
-    .share-embed textarea{width:100%;min-height:70px;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.72rem;padding:.5rem;border:1px solid var(--border);border-radius:8px;resize:vertical}
-    </style>
 </head>
-<body class="verify-page"<?= ($status !== 'revoked' && !$expired) ? ' data-celebrate="1"' : '' ?>>
-<main class="verify-shell" id="main">
+<body class="cred-page <?= $stateClass ?>"<?= ($status !== 'revoked' && !$expired) ? ' data-celebrate="1"' : '' ?>>
 
-    <!-- Veredicto: primero, antes que cualquier otra cosa -->
-    <div class="verdict <?= $verdictClass ?>" role="status">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $verdictIcon ?>"/></svg>
-        <div>
-            <strong><?= $verdictTitle ?></strong>
-            <p><?= e($verdictDetail) ?></p>
-        </div>
+<!-- Estado: cruza el ancho, antes que la pieza -->
+<div class="cred-state" role="status">
+    <div class="cred-state-inner">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $stateIcon ?>"/></svg>
+        <p><strong><?= $stateLabel ?></strong> <span><?= e($stateNote) ?></span></p>
     </div>
+</div>
 
-    <!-- Badge verificado -->
-    <article class="badge-verify card">
-        <div class="badge-verify-media">
+<main class="cred" id="main">
+    <article class="cred-exhibit">
+
+        <!-- Vitrina: la pieza, asentada -->
+        <div class="cred-stage">
             <?php if (!empty($logoUrl)): ?>
-                <div class="bv-logo"><img src="<?= e($logoUrl) ?>" alt="<?= e((string) ($b['company_name'] ?? $b['issuer_name'] ?? '')) ?>"></div>
+                <img class="cred-issuer-mark" src="<?= e($logoUrl) ?>" alt="" loading="lazy">
             <?php endif; ?>
-            <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="<?= e((string) $b['template_name']) ?>">
-            <span class="badge-status <?= $stateClass ?>"><?= $stateLabel ?></span>
+            <figure class="cred-piece">
+                <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>"
+                     alt="Insignia de <?= e((string) $b['template_name']) ?>">
+            </figure>
         </div>
 
-        <div class="badge-verify-body">
-            <p class="bv-eyebrow">Credencial verificada</p>
+        <!-- Cartela: qué es, de quién, de cuándo, y contra qué se comprobó -->
+        <div class="cred-card">
+            <p class="cred-issuer">
+                <?= e($issuer) ?>
+                <?php if (!empty($b['company_name']) && (string) $b['company_name'] !== $issuer): ?>
+                    · <?= e((string) $b['company_name']) ?>
+                <?php endif; ?>
+            </p>
             <h1><?= e((string) $b['template_name']) ?></h1>
-            <p class="bv-grantee">Otorgado a <strong><?= e($earnerName) ?></strong></p>
+            <p class="cred-holder">Otorgada a <strong><?= e($earnerName) ?></strong></p>
 
             <?php if (!empty($b['template_description'])): ?>
-                <p class="bv-desc"><?= nl2br(e((string) $b['template_description'])) ?></p>
+                <p class="cred-desc"><?= nl2br(e((string) $b['template_description'])) ?></p>
             <?php endif; ?>
 
-            <?php if (!empty($b['criteria_text']) || !empty($b['criteria_url'])): ?>
-                <div class="bv-block">
-                    <h3>Criterios de obtención</h3>
-                    <?php if (!empty($b['criteria_text'])): ?>
-                        <p><?= nl2br(e((string) $b['criteria_text'])) ?></p>
-                    <?php endif; ?>
-                    <?php if (!empty($b['criteria_url'])): ?>
-                        <p><a href="<?= e((string) $b['criteria_url']) ?>" target="_blank" rel="noopener">Ver criterios completos →</a></p>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
+            <dl class="cred-fields">
+                <dt>Emisión</dt>
+                <dd><?= e($issuedOn) ?></dd>
 
-            <?php if (!empty($tags)): ?>
-                <div class="bv-block">
-                    <h3>Competencias</h3>
-                    <div class="bv-tags"><?php foreach ($tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?></div>
-                </div>
-            <?php endif; ?>
+                <?php if (!empty($b['expires_at'])): ?>
+                    <dt><?= $expired ? 'Venció' : 'Vence' ?></dt>
+                    <dd><?= e(date_long((string) $b['expires_at'])) ?></dd>
+                <?php endif; ?>
 
-            <dl class="meta-list">
-                <dt>Emisor</dt><dd><?= e($issuer) ?></dd>
-                <dt>Fecha de emisión</dt><dd><?= e($issuedOn) ?></dd>
-                <?php if (!empty($b['expires_at'])): ?><dt>Expira</dt><dd><?= e(date_long((string) $b['expires_at'])) ?></dd><?php endif; ?>
-                <dt>ID de verificación</dt><dd><code class="bv-id"><?= e((string) $b['uuid']) ?></code></dd>
+                <dt>Verificación</dt>
+                <dd><?= e($appName) ?>, registro público</dd>
             </dl>
 
-            <div class="bv-actions">
-                <?php if ($isOwner && $status !== 'revoked'): ?>
-                    <div class="bv-row">
-                        <a class="btn btn-linkedin" href="<?= e($addToProfileUrl) ?>" target="_blank" rel="noopener">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $liIcon ?>"/></svg>Agregar a LinkedIn
-                        </a>
-                    </div>
-                <?php endif; ?>
-                <div class="bv-row">
-                    <?php if (!empty($certificateUrl)): ?>
-                        <a class="btn" href="<?= e($certificateUrl) ?>" target="_blank" rel="noopener">Ver diploma (PDF)</a>
-                    <?php endif; ?>
-                    <a class="btn btn-ghost" href="<?= e($jsonUrl) ?>" target="_blank" rel="noopener">Ver datos Open Badge</a>
-                </div>
+            <p class="cred-registry">
+                <span>N.º de registro</span>
+                <code><?= e((string) $b['uuid']) ?></code>
+                <button type="button" class="cred-copy" data-copy="<?= e((string) $b['uuid']) ?>"
+                        aria-label="Copiar el número de registro"><span>Copiar</span></button>
+            </p>
 
+            <div class="cred-actions">
+                <?php if (!empty($certificateUrl)): ?>
+                    <a class="btn btn-primary" href="<?= e($certificateUrl) ?>" target="_blank" rel="noopener">Diploma en PDF</a>
+                <?php endif; ?>
+                <a class="btn" href="<?= e($jsonUrl) ?>" target="_blank" rel="noopener">Datos Open Badge</a>
                 <?php if ($isOwner && $status !== 'revoked'): ?>
-                <div class="share-block">
-                    <h3>Compartir</h3>
-                    <div class="share-grid">
-                        <?php foreach ($shareButtons as [$label, $shUrl, $brand, $icon]): ?>
-                            <a class="share-btn" style="--brand:<?= e($brand) ?>" href="<?= e($shUrl) ?>" target="_blank" rel="noopener nofollow">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $icon ?>"/></svg><span><?= e($label) ?></span>
-                            </a>
-                        <?php endforeach; ?>
-                        <button type="button" class="share-btn" style="--brand:#697587" data-copy="<?= e($verifyUrl) ?>">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $copyIcon ?>"/></svg><span>Copiar enlace</span>
-                        </button>
-                    </div>
-                    <details class="share-embed">
-                        <summary>Insertar en una web (HTML)</summary>
-                        <textarea id="embed-code" readonly data-select><?= e($embedCode) ?></textarea>
-                        <button type="button" class="share-btn" style="--brand:#1565d8" data-copy-el="#embed-code"><span>Copiar código</span></button>
-                    </details>
-                </div>
+                    <a class="btn btn-linkedin" href="<?= e($addToProfileUrl) ?>" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $liIcon ?>"/></svg>Agregar a LinkedIn
+                    </a>
                 <?php endif; ?>
             </div>
         </div>
     </article>
 
-    <!-- Quién la obtuvo: contexto, después de la credencial -->
-    <aside class="owner-card">
-        <div class="owner-avatar">
+    <?php if (!empty($b['criteria_text']) || !empty($b['criteria_url']) || !empty($tags)): ?>
+    <!-- Ficha extendida: qué hubo que hacer para obtenerla -->
+    <section class="cred-detail">
+        <?php if (!empty($b['criteria_text']) || !empty($b['criteria_url'])): ?>
+            <div class="cred-detail-block">
+                <h2>Criterios de obtención</h2>
+                <?php if (!empty($b['criteria_text'])): ?>
+                    <p><?= nl2br(e((string) $b['criteria_text'])) ?></p>
+                <?php endif; ?>
+                <?php if (!empty($b['criteria_url'])): ?>
+                    <p><a href="<?= e((string) $b['criteria_url']) ?>" target="_blank" rel="noopener">Ver criterios completos →</a></p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($tags)): ?>
+            <div class="cred-detail-block">
+                <h2>Competencias acreditadas</h2>
+                <div class="cred-tags"><?php foreach ($tags as $tag): ?><span class="tag"><?= e($tag) ?></span><?php endforeach; ?></div>
+            </div>
+        <?php endif; ?>
+    </section>
+    <?php endif; ?>
+
+    <!-- Quién la obtuvo -->
+    <aside class="cred-holder-card">
+        <div class="cred-holder-avatar">
             <?php if (!empty($b['avatar_filename'])): ?>
-                <img src="<?= e(profile_image_url((string) $b['avatar_filename'])) ?>" alt="">
+                <img src="<?= e(profile_image_url((string) $b['avatar_filename'])) ?>" alt="" loading="lazy">
             <?php else: ?>
                 <span aria-hidden="true"><?= e($initial) ?></span>
             <?php endif; ?>
         </div>
-        <div class="owner-id">
+        <div class="cred-holder-id">
             <h2><?= e($earnerName) ?></h2>
             <?php if (!empty($b['profile_bio'])): ?>
-                <p class="owner-bio"><?= e(mb_strimwidth(trim((string) $b['profile_bio']), 0, 160, '…')) ?></p>
+                <p><?= e(mb_strimwidth(trim((string) $b['profile_bio']), 0, 150, '…')) ?></p>
             <?php endif; ?>
-            <p class="owner-links">
-                <a href="/earner/<?= e((string) $b['earner_uuid']) ?>">Ver todos sus badges →</a>
+            <p class="cred-holder-links">
+                <a href="/earner/<?= e((string) $b['earner_uuid']) ?>">Ver todas sus credenciales →</a>
                 <?php foreach ($networks as $n): ?>
-                    <a class="owner-social" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>" style="--brand:<?= e($n['brand']) ?>">
+                    <a class="cred-social" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>" style="--brand:<?= e($n['brand']) ?>">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $n['icon'] ?>"/></svg>
                     </a>
                 <?php endforeach; ?>
@@ -242,9 +245,31 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
         </div>
     </aside>
 
-    <p class="verify-foot">Verificado con <strong>HexBadge</strong>, una herramienta de
+    <?php if ($isOwner && $status !== 'revoked'): ?>
+    <section class="cred-share">
+        <h2>Compartir</h2>
+        <div class="cred-share-grid">
+            <?php foreach ($shareButtons as [$label, $shUrl, $brand, $icon]): ?>
+                <a class="cred-share-btn" style="--brand:<?= e($brand) ?>" href="<?= e($shUrl) ?>" target="_blank" rel="noopener nofollow">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $icon ?>"/></svg><span><?= e($label) ?></span>
+                </a>
+            <?php endforeach; ?>
+            <button type="button" class="cred-share-btn" style="--brand:#697587" data-copy="<?= e($verifyUrl) ?>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $copyIcon ?>"/></svg><span>Copiar enlace</span>
+            </button>
+        </div>
+        <details class="cred-embed">
+            <summary>Insertar en una web (HTML)</summary>
+            <textarea id="embed-code" readonly data-select><?= e($embedCode) ?></textarea>
+            <button type="button" class="cred-share-btn" style="--brand:#1565d8" data-copy-el="#embed-code"><span>Copiar código</span></button>
+        </details>
+    </section>
+    <?php endif; ?>
+
+    <p class="cred-foot">Verificado con <strong><?= e($appName) ?></strong>, una herramienta de
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
 </main>
+
 <script src="<?= asset('js/copy.js') ?>" defer></script>
 <script src="<?= asset('js/verify.js') ?>" defer></script>
 </body>
