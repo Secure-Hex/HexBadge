@@ -27,24 +27,24 @@ use HexBadge\Core\CSRF;
         <p>Iniciá sesión para reclamar este badge.</p>
     <?php endif; ?>
 
-    <form method="POST" action="/accept/<?= e($token) ?>" autocomplete="off">
+    <form method="POST" action="/accept/<?= e($token) ?>">
         <?= CSRF::field() ?>
 
-        <label>Email</label>
-        <input type="email" value="<?= e($email) ?>" disabled>
+        <label for="accept-email">Email</label>
+        <input type="email" id="accept-email" value="<?= e($email) ?>" autocomplete="username" readonly>
 
         <?php if ($mode === 'register'): ?>
             <label for="password">Creá una contraseña (mín. 12 caracteres)</label>
-            <input type="password" id="password" name="password" minlength="12" required autofocus>
+            <input type="password" id="password" name="password" minlength="12" autocomplete="new-password" required autofocus>
             <label for="password_confirm">Repetir contraseña</label>
-            <input type="password" id="password_confirm" name="password_confirm" minlength="12" required>
+            <input type="password" id="password_confirm" name="password_confirm" minlength="12" autocomplete="new-password" required>
             <button type="submit" class="btn btn-primary btn-block">Crear cuenta y reclamar</button>
         <?php else: ?>
             <label for="password">Contraseña</label>
-            <input type="password" id="password" name="password" required autofocus>
+            <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
             <?php if (!empty($requiresTotp)): ?>
                 <label for="code">Código 2FA (6 dígitos)</label>
-                <input type="text" id="code" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required placeholder="000000" style="text-align:center;letter-spacing:4px">
+                <input type="text" id="code" name="code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required placeholder="000000" style="text-align:center;letter-spacing:4px">
             <?php endif; ?>
             <button type="submit" class="btn btn-primary btn-block">Ingresar y reclamar</button>
         <?php endif; ?>

@@ -18,6 +18,28 @@
 
     function results() { return document.querySelector('[data-live-results]'); }
 
+    // Región de anuncios para lectores de pantalla. Vive fuera del bloque que
+    // se reemplaza: una región live tiene que existir ANTES del cambio para
+    // que se anuncie. Sin esto, filtrar sustituye la tabla en silencio.
+    function announcer() {
+        var el = document.getElementById('live-announcer');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'live-announcer';
+            el.className = 'sr-only';
+            el.setAttribute('aria-live', 'polite');
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function announce(node) {
+        var rows = node.querySelectorAll('tbody tr').length;
+        announcer().textContent = rows === 0
+            ? 'Sin resultados para esos filtros'
+            : rows + (rows === 1 ? ' resultado' : ' resultados');
+    }
+
     function swap(url, fallback) {
         var current = results();
         if (!current) { fallback(); return; }
@@ -29,6 +51,7 @@
                 var cur = results();
                 if (!fresh || !cur) { fallback(); return; }
                 cur.replaceWith(fresh);
+                announce(fresh);
                 try { window.history.replaceState(null, '', url); } catch (e) { /* noop */ }
             })
             .catch(fallback);

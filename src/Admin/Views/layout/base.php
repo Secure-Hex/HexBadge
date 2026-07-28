@@ -24,6 +24,7 @@ $flashError   = Session::flash('error');
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
 <?php if (!empty($currentUser)): ?>
 <div class="app-shell">
     <?= View::renderPartial('layout/nav', ['currentUser' => $currentUser, 'appName' => $appName]) ?>
@@ -36,26 +37,28 @@ $flashError   = Session::flash('error');
                 <a class="btn btn-sm" href="/logout">Salir</a>
             </div>
         </header>
-        <main class="content">
-            <?php if ($flashSuccess): ?><div class="alert alert-success"><?= e($flashSuccess) ?></div><?php endif; ?>
-            <?php if ($flashError): ?><div class="alert alert-error"><?= e($flashError) ?></div><?php endif; ?>
+        <main class="content" id="main">
+            <?php if ($flashSuccess): ?><div class="alert alert-success" role="status"><?= e($flashSuccess) ?></div><?php endif; ?>
+            <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
             <?= $content ?>
         </main>
     </div>
 </div>
 <?php else: ?>
 <div class="auth-wrap">
-    <div style="width:100%;max-width:420px">
-        <?php if ($flashSuccess): ?><div class="alert alert-success"><?= e($flashSuccess) ?></div><?php endif; ?>
-        <?php if ($flashError): ?><div class="alert alert-error"><?= e($flashError) ?></div><?php endif; ?>
+    <main id="main" style="width:100%;max-width:420px">
+        <?php if ($flashSuccess): ?><div class="alert alert-success" role="status"><?= e($flashSuccess) ?></div><?php endif; ?>
+        <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
         <?= $content ?>
         <p style="text-align:center;margin-top:1.25rem;font-size:.82rem;color:var(--muted)">
             <strong>HexBadge</strong> — una herramienta de
             <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a>
         </p>
-    </div>
+    </main>
 </div>
 <?php endif; ?>
+<script src="<?= asset('js/confirm.js') ?>" defer></script>
+<script src="<?= asset('js/copy.js') ?>" defer></script>
 <script src="<?= asset('js/filters.js') ?>" defer></script>
 <script src="<?= asset('js/company-multiselect.js') ?>" defer></script>
 </body>

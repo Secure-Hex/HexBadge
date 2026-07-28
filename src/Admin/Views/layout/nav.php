@@ -44,7 +44,7 @@ $item = static function (string $href, string $label, string $key) use ($active,
         <span><?= e($appName) ?><small>by SecureHex</small></span>
     </a>
 
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Secciones del panel">
         <div class="nav-section">Operación</div>
         <?= $item('/admin', 'Dashboard', 'dashboard') ?>
         <?= $item('/admin/templates', 'Templates', 'template') ?>

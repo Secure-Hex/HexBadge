@@ -22,13 +22,14 @@ $flashError   = Session::flash('error');
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
 <header class="public-header">
     <div class="inner">
         <a class="brand" href="/">
             <span class="brand-mark" style="color:var(--primary)"><?= View::renderPartial('layout/securelogo') ?></span>
             <?= e($appName) ?>
         </a>
-        <nav>
+        <nav aria-label="Principal">
             <?php if (EarnerAuth::check()): ?>
                 <a href="/earner/<?= e((string) Session::get('earner_uuid')) ?>">Mis badges</a>
                 <a href="/me/profile">Perfil</a>
@@ -40,9 +41,9 @@ $flashError   = Session::flash('error');
         </nav>
     </div>
 </header>
-<main class="container">
-    <?php if ($flashSuccess): ?><div class="alert alert-success"><?= e($flashSuccess) ?></div><?php endif; ?>
-    <?php if ($flashError): ?><div class="alert alert-error"><?= e($flashError) ?></div><?php endif; ?>
+<main class="container" id="main">
+    <?php if ($flashSuccess): ?><div class="alert alert-success" role="status"><?= e($flashSuccess) ?></div><?php endif; ?>
+    <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
     <?= $content ?>
 </main>
 <footer class="site-footer">
@@ -51,6 +52,7 @@ $flashError   = Session::flash('error');
     <p style="opacity:.8">&copy; <?= date('Y') ?> SecureHex · securehex.cl</p>
     <?php require BASE_PATH . '/src/Shared/about.php'; ?>
 </footer>
+<script src="<?= asset('js/confirm.js') ?>" defer></script>
 <script src="<?= asset('js/search.js') ?>" defer></script>
 </body>
 </html>

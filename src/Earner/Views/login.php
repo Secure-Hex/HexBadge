@@ -18,11 +18,11 @@ $reset = $reset ?? false;
         <div class="alert alert-error"><?= e($error) ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="/login" autocomplete="off">
+    <form method="POST" action="/login">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" value="<?= e($oldEmail) ?>" required autofocus>
+        <input type="email" id="email" name="email" value="<?= e($oldEmail) ?>" autocomplete="username" required autofocus>
         <label for="password">Contraseña</label>
-        <input type="password" id="password" name="password" required>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
         <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
     </form>
     <p class="auth-alt"><a href="/forgot-password">¿Olvidaste tu contraseña?</a></p>
