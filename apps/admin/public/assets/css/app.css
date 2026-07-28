@@ -263,6 +263,66 @@ a.card:focus-visible{outline:none;box-shadow:var(--ring)}
    página entera en horizontal (y con ella el header) en pantallas chicas. */
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
+/* ---- Diseñador de insignias ---- */
+.bde-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.bde-head h1{margin-bottom:.15rem}
+.bde{display:grid;grid-template-columns:minmax(0,1fr) 22rem;gap:1.5rem;align-items:start;margin-top:1.25rem}
+.bde-canvas-col{position:sticky;top:5rem}
+/* Tablero de transparencia: la insignia se ve sobre fondos distintos. */
+.bde-stage{position:relative;aspect-ratio:1;max-width:30rem;margin:0 auto;border-radius:var(--radius);
+  background-color:var(--surface);
+  background-image:linear-gradient(45deg,#eef2f8 25%,transparent 25%,transparent 75%,#eef2f8 75%),
+                   linear-gradient(45deg,#eef2f8 25%,transparent 25%,transparent 75%,#eef2f8 75%);
+  background-size:22px 22px;background-position:0 0,11px 11px;border:1px solid var(--border);overflow:hidden}
+.bde-svg,.bde-handles{position:absolute;inset:0}
+.bde-svg svg{width:100%;height:100%;display:block}
+.bde-handles{pointer-events:none}
+.bde-handle{position:absolute;pointer-events:auto;cursor:move;border:1px dashed transparent;border-radius:4px}
+.bde-handle:hover{border-color:rgba(21,101,216,.5)}
+.bde-handle.is-sel{border-color:var(--primary);border-style:solid}
+.bde-handle:focus-visible{outline:none;box-shadow:var(--ring)}
+.bde-grip{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;
+  background:var(--primary);border:2px solid #fff;cursor:nwse-resize;display:none}
+.bde-handle.is-sel .bde-grip{display:block}
+.bde-hint{font-size:.8rem;text-align:center;margin-top:.75rem}
+.bde-hint kbd{background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:0 .3rem;font-size:.9em}
+.bde-save{margin-top:1rem;text-align:center}
+
+.bde-panel{display:flex;flex-direction:column;gap:.6rem}
+.bde-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:.9rem 1rem}
+.bde-group>summary{cursor:pointer;font-weight:650;font-size:.92rem;list-style:none}
+.bde-group>summary::-webkit-details-marker{display:none}
+.bde-group>summary::before{content:"▸ ";color:var(--muted)}
+.bde-group[open]>summary::before{content:"▾ "}
+/* El panel no es un <form>, así que los estilos base de campo no lo alcanzan. */
+.bde-group label{display:block;margin:.7rem 0 .3rem;font-size:.85rem;font-weight:600;color:var(--text-2)}
+.bde-group input[type=text],.bde-group select,.bde-group input[type=file]{
+  width:100%;max-width:none;padding:.5rem .6rem;background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  color:var(--text);font:inherit;font-size:.9rem}
+.bde-group input[type=color]{width:100%;max-width:none;height:2.3rem;padding:.15rem;cursor:pointer;
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface)}
+.bde-group input:focus,.bde-group select:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+.bde-group .bd-row{display:flex;gap:.7rem}
+.bde-group .bd-row span{flex:1 1 0;min-width:0}
+.bde-group .bd-check{display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-weight:500}
+.bde-group .bd-check input{width:auto}
+.bde-group small{display:block;color:var(--muted);font-size:.78rem;margin-top:.3rem}
+.bde-group input[type=range]{width:100%;max-width:none;padding:0}
+.bde-group output{float:right;font-size:.8rem;color:var(--muted);font-weight:500}
+
+.bde-assets{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
+.bde-asset{width:56px;height:56px;padding:.3rem;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);cursor:pointer;display:grid;place-items:center}
+.bde-asset:hover{border-color:var(--primary)}
+.bde-asset img{max-width:100%;max-height:100%;object-fit:contain}
+.bde-selected{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}
+
+@media (max-width:980px){
+  .bde{grid-template-columns:1fr}
+  .bde-canvas-col{position:static}
+}
+
 /* ---- Selector de modo (imagen subida o diseñada, tipo de diploma) ---- */
 .mode-set{border:1px solid var(--border);border-radius:var(--radius-md);
   padding:1rem 1.1rem;margin-top:1rem}

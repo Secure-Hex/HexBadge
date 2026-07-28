@@ -15,6 +15,7 @@ declare(strict_types=1);
 use HexBadge\Admin\Controllers\AuthController;
 use HexBadge\Admin\Controllers\DashboardController;
 use HexBadge\Admin\Controllers\AccountController;
+use HexBadge\Admin\Controllers\BadgeDesignerController;
 use HexBadge\Admin\Controllers\BadgeTemplateController;
 use HexBadge\Admin\Controllers\IssueController;
 use HexBadge\Admin\Controllers\BulkIssueController;
@@ -74,6 +75,10 @@ $router->get('/admin/templates/{uuid}/edit', [BadgeTemplateController::class, 'e
 $router->post('/admin/templates/{uuid}/archive', [BadgeTemplateController::class, 'archive']);
 $router->get('/admin/templates/{uuid}/certificates', [CertificateController::class, 'downloadIndex']);
 $router->post('/admin/templates/{uuid}/certificates', [CertificateController::class, 'downloadBundle']);
+$router->get('/admin/templates/designer/preview', [BadgeDesignerController::class, 'preview']);
+$router->get('/admin/templates/{uuid}/designer', [BadgeDesignerController::class, 'show']);
+$router->post('/admin/templates/{uuid}/designer', [BadgeDesignerController::class, 'save']);
+$router->post('/admin/templates/{uuid}/designer/asset', [BadgeDesignerController::class, 'uploadAsset']);
 $router->get('/admin/templates/{uuid}/certificate', [CertificateController::class, 'show']);
 $router->post('/admin/templates/{uuid}/certificate/delete', [CertificateController::class, 'delete']);
 $router->post('/admin/templates/{uuid}/certificate', [CertificateController::class, 'save']);

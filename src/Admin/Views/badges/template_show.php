@@ -55,6 +55,9 @@ $t = $template;
 
         <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
             <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/edit">Editar</a>
+            <a class="btn btn-primary" href="/admin/templates/<?= e((string) $t['uuid']) ?>/designer">
+                <?= !empty($t['design_recipe']) ? 'Editar el diseño' : 'Diseñar insignia' ?>
+            </a>
             <?php if ($hasCertImg && !$linked): ?>
                 <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/certificate"><?= $hasCertCfg ? 'Reconfigurar certificado' : 'Marcar certificado' ?></a>
             <?php endif; ?>

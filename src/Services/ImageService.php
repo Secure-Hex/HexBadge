@@ -134,6 +134,41 @@ final class ImageService
         return $name;
     }
 
+    /**
+     * Guarda una insignia generada en SVG.
+     *
+     * Con `$reuse` sobreescribe ese archivo: los correos ya enviados embeben la
+     * URL de la imagen, así que cambiar el nombre al reeditar los rompe.
+     */
+    public function storeGeneratedSvg(string $svg, ?string $reuse = null): string
+    {
+        if (!str_contains($svg, '<svg')) {
+            throw new RuntimeException('El diseño generado no es un SVG válido');
+        }
+
+        $dir = self::UPLOAD_DIR;
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new RuntimeException('No se pudo crear el directorio de uploads');
+        }
+
+        $name = ($reuse !== null && strtolower(pathinfo($reuse, PATHINFO_EXTENSION)) === 'svg')
+            ? basename($reuse)
+            : bin2hex(random_bytes(16)) . '.svg';
+
+        $tmp = $dir . $name . '.tmp';
+        if (file_put_contents($tmp, $svg) === false) {
+            @unlink($tmp);
+            throw new RuntimeException('No se pudo guardar el diseño');
+        }
+        rename($tmp, $dir . $name);
+        @chmod($dir . $name, 0644);
+        // Lo generamos nosotros, pero pasa igual por el saneado: es el mismo
+        // archivo que después se sirve al público.
+        $this->sanitizeSvg($dir . $name);
+
+        return $name;
+    }
+
     public function delete(string $filename): void
     {
         // Evitar path traversal: solo el basename.
