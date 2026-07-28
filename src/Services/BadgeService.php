@@ -185,7 +185,8 @@ final class BadgeService
         $firstName  = (string) $badge['first_name'];
         $acceptUrl  = public_url('accept/' . $rawToken);
         $verifyUrl  = public_url('verify/' . $badgeUuid);
-        $img        = badge_image_url((string) $badge['image_filename']);
+        // Gmail y Outlook no renderizan SVG: acá va el PNG gemelo del diseño.
+        $img        = badge_raster_url((string) $badge['image_filename']);
 
         $inner = EmailTemplate::heading('¡Felicitaciones, ' . e($firstName) . '!')
             . '<p style="text-align:center;margin:0 0 8px"><strong>SecureHex</strong> creó esta acreditación a nombre de <strong>' . e($issuerName) . '</strong>:</p>'

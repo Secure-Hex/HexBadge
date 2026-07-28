@@ -169,6 +169,41 @@ function badge_image_url(?string $filename): string
 }
 
 /**
+ * URL de la imagen de un badge para destinos que no renderizan SVG.
+ *
+ * El correo y las vistas previas de redes sociales son dos de ellos: Gmail y
+ * Outlook muestran el ícono de imagen rota, y los rastreadores de Open Graph
+ * directamente descartan el recurso. Si el diseño tiene su PNG gemelo, se
+ * devuelve ese; si no, cae al archivo original, que es lo que se hacía antes.
+ */
+function badge_raster_url(?string $filename): string
+{
+    $name   = basename((string) $filename);
+    $raster = \HexBadge\Services\ImageService::rasterNameFor($name);
+    if ($raster !== null && is_file(BASE_PATH . '/apps/earner/public/uploads/badges/' . $raster)) {
+        return public_url('uploads/badges/' . $raster);
+    }
+
+    return public_url('uploads/badges/' . $name);
+}
+
+/**
+ * ¿Es un diseño en SVG al que todavía le falta su PNG gemelo?
+ *
+ * Pasa cuando la insignia se generó del lado del servidor —al crear la
+ * acreditación en modo diseño— y nadie abrió el diseñador después: el mapa de
+ * bits lo produce el navegador. Mientras falte, las notificaciones caen al SVG
+ * y llegan con la imagen rota.
+ */
+function badge_needs_raster(?string $filename): bool
+{
+    $raster = \HexBadge\Services\ImageService::rasterNameFor(basename((string) $filename));
+
+    return $raster !== null
+        && !is_file(BASE_PATH . '/apps/earner/public/uploads/badges/' . $raster);
+}
+
+/**
  * URL pública de una imagen de perfil (avatar o portada).
  */
 function profile_image_url(?string $filename): string

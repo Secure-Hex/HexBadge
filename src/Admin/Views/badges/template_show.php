@@ -53,6 +53,14 @@ $t = $template;
             <?php else: ?><span>— sin diploma (elegí uno al editar el template)</span><?php endif; ?>
         </p>
 
+        <?php if (badge_needs_raster((string) $t['image_filename'])): ?>
+            <div class="alert alert-warn" role="alert" style="margin-top:1rem">
+                A esta insignia le falta la versión para el correo. Los clientes de correo no muestran
+                imágenes SVG, así que las notificaciones van a llegar con la imagen rota.
+                Abrí el diseñador y guardá el diseño: con eso se genera sola.
+            </div>
+        <?php endif; ?>
+
         <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
             <a class="btn" href="/admin/templates/<?= e((string) $t['uuid']) ?>/edit">Editar</a>
             <a class="btn btn-primary" href="/admin/templates/<?= e((string) $t['uuid']) ?>/designer">

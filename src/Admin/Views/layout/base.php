@@ -15,6 +15,10 @@ $name         = (string) ($currentUser['name'] ?? '');
 $initial      = strtoupper(mb_substr(trim($name) !== '' ? $name : 'U', 0, 1));
 $flashSuccess = Session::flash('success');
 $flashError   = Session::flash('error');
+// Para lo que salió a medias: la acción se completó pero hay algo que el
+// usuario tiene que saber. Sin este caso, un flash de aviso se descartaba en
+// silencio y quedaba peor que no haberlo escrito.
+$flashWarning = Session::flash('warning');
 ?><!DOCTYPE html>
 <html lang="es">
 <head>
@@ -39,6 +43,7 @@ $flashError   = Session::flash('error');
         </header>
         <main class="content" id="main">
             <?php if ($flashSuccess): ?><div class="alert alert-success" role="status"><?= e($flashSuccess) ?></div><?php endif; ?>
+            <?php if ($flashWarning): ?><div class="alert alert-warn" role="alert"><?= e($flashWarning) ?></div><?php endif; ?>
             <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
             <?= $content ?>
         </main>
@@ -48,6 +53,7 @@ $flashError   = Session::flash('error');
 <div class="auth-wrap">
     <main id="main" style="width:100%;max-width:420px">
         <?php if ($flashSuccess): ?><div class="alert alert-success" role="status"><?= e($flashSuccess) ?></div><?php endif; ?>
+        <?php if ($flashWarning): ?><div class="alert alert-warn" role="alert"><?= e($flashWarning) ?></div><?php endif; ?>
         <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
         <?= $content ?>
         <p style="text-align:center;margin-top:1.25rem;font-size:.82rem;color:var(--muted)">

@@ -352,6 +352,46 @@
         }
     });
 
+    // ---- PNG para el correo ----
+    //
+    // Gmail y Outlook no renderizan SVG, y los rastreadores de redes tampoco.
+    // El mapa de bits lo saca el navegador y no el servidor porque el hosting no
+    // tiene Imagick y GD no rasteriza SVG, pero sobre todo porque el navegador ya
+    // es el renderizador de referencia: la página pública muestra este mismo SVG
+    // dentro de un <img>, así que la captura coincide por construcción. Dibujarlo
+    // aparte en PHP daría dos versiones distintas del mismo diseño.
+    var rasterField = document.getElementById('bde-raster');
+    // El correo muestra la insignia a 150px: 384 da margen para pantallas de
+    // alta densidad sin que el grano —que no comprime— dispare el peso.
+    var RASTER_SIDE = 384;
+
+    function raster() {
+        var svg = canvas.querySelector('svg');
+        if (!rasterField || !svg) { return; }
+
+        // data: y no blob: — la CSP declara `img-src 'self' data:` y un blob se
+        // bloquea sin ningún aviso en consola.
+        var markup = new XMLSerializer().serializeToString(svg);
+        var img = new Image();
+        img.onload = function () {
+            try {
+                var c = document.createElement('canvas');
+                c.width = c.height = RASTER_SIDE;
+                var ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, RASTER_SIDE, RASTER_SIDE);
+                rasterField.value = c.toDataURL('image/png');
+            } catch (e) {
+                // Si el lienzo quedara contaminado, se guarda sin PNG: el correo
+                // cae al SVG y el servidor avisa. Nunca frena el guardado.
+                rasterField.value = '';
+            }
+        };
+        img.onerror = function () { rasterField.value = ''; };
+        // Sin base64: encodeURIComponent ya deja el UTF-8 bien, y evita el
+        // rodeo por btoa, que solo entiende bytes y rompe con acentos.
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+    }
+
     // ---- vista previa ----
     function queue() {
         field.value = JSON.stringify(state);
@@ -372,6 +412,7 @@
                     try { layout = JSON.parse(root.getAttribute('data-layout') || '{}'); }
                     catch (err) { layout = {}; }
                     drawHandles();
+                    raster();
                 })
                 .catch(function () { /* una vista previa fallida no rompe la edición */ });
         }, 220);

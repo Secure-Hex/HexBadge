@@ -169,12 +169,86 @@ final class ImageService
         return $name;
     }
 
+    /**
+     * Sufijo del PNG gemelo de un diseño en SVG.
+     *
+     * Existe porque Gmail, Outlook y los lectores de vistas previas de redes no
+     * renderizan SVG: sin un mapa de bits al lado, la imagen del correo llega
+     * rota. El sufijo lo hace reconocible para que el optimizador de imágenes no
+     * lo convierta a WebP y borre el original.
+     */
+    public const RASTER_SUFFIX = '.raster.png';
+
+    /** Peso máximo del PNG gemelo ya decodificado. */
+    private const MAX_RASTER_BYTES = 2 * 1024 * 1024;
+
+    /** Nombre del gemelo de un SVG, o null si el archivo no es un SVG. */
+    public static function rasterNameFor(string $svgName): ?string
+    {
+        $name = basename($svgName);
+
+        return str_ends_with(strtolower($name), '.svg')
+            ? substr($name, 0, -4) . self::RASTER_SUFFIX
+            : null;
+    }
+
+    /**
+     * Guarda el PNG que rasterizó el navegador junto a su SVG.
+     *
+     * Lo dibuja el navegador y no el servidor a propósito: prod no tiene Imagick
+     * y GD no rasteriza SVG, pero sobre todo porque el navegador ya es el
+     * renderizador de referencia —la página pública muestra el SVG dentro de un
+     * <img>—, así que su captura es idéntica por construcción. Dibujarlo aparte
+     * en PHP crearía dos versiones distintas de la misma receta.
+     *
+     * Devuelve false ante cualquier problema: sin gemelo el correo cae al SVG,
+     * que es lo que hacía antes. Nunca hace fallar el guardado del diseño.
+     */
+    public function storeBadgeRaster(string $dataUri, string $svgName): bool
+    {
+        $target = self::rasterNameFor($svgName);
+        if ($target === null || !str_starts_with($dataUri, 'data:image/png;base64,')) {
+            return false;
+        }
+
+        $raw = base64_decode(substr($dataUri, 22), true);
+        if ($raw === false || $raw === '' || strlen($raw) > self::MAX_RASTER_BYTES) {
+            return false;
+        }
+        // Que se declare PNG no alcanza: el contenido lo eligió el cliente.
+        $info = @getimagesizefromstring($raw);
+        if (!is_array($info) || ($info[2] ?? 0) !== IMAGETYPE_PNG
+            || $info[0] < 64 || $info[0] > 2048 || $info[1] < 64 || $info[1] > 2048) {
+            return false;
+        }
+
+        $dir = self::UPLOAD_DIR;
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return false;
+        }
+        $tmp = $dir . $target . '.tmp';
+        if (file_put_contents($tmp, $raw) === false) {
+            @unlink($tmp);
+            return false;
+        }
+        rename($tmp, $dir . $target);
+        @chmod($dir . $target, 0644);
+
+        return true;
+    }
+
     public function delete(string $filename): void
     {
         // Evitar path traversal: solo el basename.
         $path = self::UPLOAD_DIR . basename($filename);
         if (is_file($path)) {
             @unlink($path);
+        }
+        // El gemelo se va con su SVG: si no, queda un PNG huérfano que ningún
+        // registro menciona y que nadie va a volver a borrar.
+        $raster = self::rasterNameFor($filename);
+        if ($raster !== null && is_file(self::UPLOAD_DIR . $raster)) {
+            @unlink(self::UPLOAD_DIR . $raster);
         }
     }
 

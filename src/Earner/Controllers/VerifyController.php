@@ -80,7 +80,10 @@ final class VerifyController
             'expired'         => $expired,
             'verifyUrl'       => $verifyUrl,
             'jsonUrl'         => $verifyUrl . '.json',
-            'imageUrl'        => badge_image_url((string) $badge['image_filename']),
+            // Solo alimenta destinos de afuera —el fragmento para incrustar,
+            // og:image y twitter:image—, y ninguno de esos renderiza SVG. La
+            // pieza grande de la página usa badge_image_url() y sigue vectorial.
+            'imageUrl'        => badge_raster_url((string) $badge['image_filename']),
             'logoUrl'         => !empty($badge['logo_filename']) ? logo_image_url((string) $badge['logo_filename']) : null,
             'addToProfileUrl' => 'https://www.linkedin.com/profile/add?' . http_build_query($linkedinParams),
             'shareUrl'        => 'https://www.linkedin.com/sharing/share-offsite/?url=' . rawurlencode($verifyUrl),

@@ -156,6 +156,12 @@ final class ImageOptimizerService
         if ($ext === 'svg' || $ext === '' || basename($path) === '.htaccess') {
             return null; // vectorial o control de acceso
         }
+        // El gemelo de un diseño existe justamente porque el correo no renderiza
+        // ni SVG ni WebP. Convertirlo volvería a romper la imagen del correo, y
+        // encima borraría el original.
+        if (str_ends_with(strtolower(basename($path)), ImageService::RASTER_SUFFIX)) {
+            return null;
+        }
         $info = @getimagesize($path);
         if ($info === false) {
             return null;

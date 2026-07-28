@@ -107,6 +107,11 @@ final class BadgeDesignerController extends Controller
         $reuse = !empty($template['design_recipe']) && str_ends_with($prev, '.svg') ? $prev : null;
         $name  = $image->storeGeneratedSvg($svg, $reuse);
 
+        // El PNG que rasterizó el navegador, para el correo y las vistas previas
+        // de redes. Si no llegó o no es válido, se sigue sin él: la imagen cae al
+        // SVG, que es exactamente lo que pasaba antes de que esto existiera.
+        $rastered = $image->storeBadgeRaster((string) $request->input('raster', ''), $name);
+
         if ($reuse === null && $prev !== '') {
             $image->delete($prev);
         }
@@ -119,9 +124,16 @@ final class BadgeDesignerController extends Controller
         Logger::audit('template.designed', Auth::id(), 'badge_template', $uuid, [
             'shape'  => $recipe['shape'],
             'images' => count($recipe['images']),
+            'raster' => $rastered,
         ]);
 
-        Session::flash('success', 'Diseño guardado.');
+        Session::flash(
+            $rastered ? 'success' : 'warning',
+            $rastered
+                ? 'Diseño guardado.'
+                : 'Diseño guardado, pero no se pudo generar la versión para el correo: '
+                  . 'la imagen de las notificaciones puede verse rota. Volvé a guardar desde el navegador.'
+        );
 
         return $this->redirect('/admin/templates/' . $uuid . '/designer');
     }

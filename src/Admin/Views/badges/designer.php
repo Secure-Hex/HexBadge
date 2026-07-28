@@ -43,6 +43,8 @@ $uuid = (string) $template['uuid'];
             <?= CSRF::field() ?>
             <button type="button" class="btn btn-sm" id="bde-reset-text" hidden>Devolver el texto a su lugar</button>
             <input type="hidden" name="recipe" id="bde-recipe" value="<?= e(json_encode($recipe, JSON_UNESCAPED_UNICODE)) ?>">
+            <?php /* El PNG que rasteriza el navegador, para el correo y las redes. */ ?>
+            <input type="hidden" name="raster" id="bde-raster" value="">
             <button type="submit" class="btn btn-primary"
                     <?= $issued > 0 ? 'data-confirm="Se van a actualizar las ' . $issued . ' credenciales ya emitidas con este diseño. ¿Confirmás?"' : '' ?>>
                 Guardar diseño
