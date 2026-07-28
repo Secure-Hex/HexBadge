@@ -945,13 +945,27 @@ final class BadgeSvgService
         $out  = '';
 
         if ($r['ribbonStyle'] === 'folded') {
-            // Los dobleces que se ven por detrás son lo que da la sensación de
-            // que la cinta rodea la pieza en vez de estar apoyada encima.
-            $f = self::shade($band, -0.35);
-            $out .= '<path d="M ' . round($x - $vb * 0.045, 1) . ' ' . round($y - $h * 0.42, 1)
-                . ' l ' . round($vb * 0.05, 1) . ' 0 l 0 ' . round($h * 0.9, 1) . ' Z" fill="' . $f . '"/>'
-                . '<path d="M ' . round($x + $w + $vb * 0.045, 1) . ' ' . round($y - $h * 0.42, 1)
-                . ' l ' . round(-$vb * 0.05, 1) . ' 0 l 0 ' . round($h * 0.9, 1) . ' Z" fill="' . $f . '"/>';
+            // Colas que caen por detrás, con muesca en V. Una cinta doblada cae:
+            // la versión anterior salía hacia arriba y terminaba a media cinta,
+            // así que se leía como dos triángulos sueltos apoyados encima.
+            $f  = self::shade($band, -0.32);
+            $y0 = $y + $h * 0.15;
+            $e  = $vb * 0.045;                       // cuánto sobresale al costado
+            $s  = $h * 0.78;                         // ancho de la cola
+            // Sin este tope, con la cinta cerca del borde inferior la cola se
+            // salía del lienzo y quedaba cortada en seco.
+            $d  = min($h * 1.5, $vb - $y0 - 2);
+
+            if ($d > $h * 0.5) {
+                foreach ([[-1, $x], [1, $x + $w]] as [$dir, $ex]) {
+                    $out .= '<path d="M ' . round($ex, 1) . ' ' . round($y0, 1)
+                        . ' L ' . round($ex + $dir * $e, 1) . ' ' . round($y0 + $d, 1)
+                        . ' L ' . round($ex + $dir * ($e - $s * 0.5), 1) . ' ' . round($y0 + $d - $s * 0.45, 1)
+                        . ' L ' . round($ex + $dir * ($e - $s), 1) . ' ' . round($y0 + $d, 1)
+                        . ' L ' . round($ex - $dir * $s, 1) . ' ' . round($y0, 1)
+                        . ' Z" fill="' . $f . '"/>';
+                }
+            }
         }
 
         $shape = match ($r['ribbonStyle']) {
