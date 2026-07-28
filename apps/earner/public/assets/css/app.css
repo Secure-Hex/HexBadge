@@ -635,8 +635,13 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
   box-shadow:inset 0 14px 26px -20px rgba(15,27,46,.5),
              inset 0 -14px 26px -20px rgba(15,27,46,.35);
 }
-.cred-issuer-mark{position:absolute;top:1.1rem;left:1.25rem;max-width:96px;max-height:34px;
-  width:auto;height:auto;object-fit:contain;opacity:.9}
+/* 150px de ancho: a esa escala el logo se lee. El tope de altura es lo que
+   evita que un logo cuadrado o vertical —nada impide subirlos, processLogo()
+   solo valida tipo y peso— crezca hasta taparse con la pieza. Con contain la
+   marca nunca se deforma: solo ocupa menos ancho. */
+.cred-issuer-mark{position:absolute;top:1.1rem;left:1.25rem;
+  width:150px;max-width:calc(100% - 2.5rem);max-height:62px;
+  object-fit:contain;object-position:left center;opacity:.9}
 /* La pieza va montada, no pegada: casi todas las imágenes de badge traen su
    propio fondo opaco, y sin montaje el rectángulo del archivo se ve recortado
    sobre el campo, que es justo el efecto de estampa escaneada. */
@@ -756,7 +761,9 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 
 @media (max-width:760px){
   .cred-exhibit{grid-template-columns:1fr}
-  .cred-stage{border-right:0;border-bottom:1px solid var(--border);padding:2.5rem 1.5rem}
+  .cred-stage{border-right:0;border-bottom:1px solid var(--border);padding:1.5rem 1.5rem 2.5rem;
+    flex-direction:column;align-items:center;gap:1.5rem}
+  .cred-issuer-mark{position:static;align-self:flex-start;width:130px;max-height:52px}
   .cred-card{padding:1.6rem 1.4rem 1.5rem}
   .cred-card h1{font-size:1.45rem}
   .cred{padding:1.25rem 1rem 2.5rem}
