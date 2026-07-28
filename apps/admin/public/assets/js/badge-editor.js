@@ -53,7 +53,7 @@
         });
         output('titleSize', state.titleSize, 'x');
         output('tracking', state.tracking, 'px');
-        ['gradX', 'gradY', 'gradSpread', 'gradAngle', 'patternOp', 'stars'].forEach(function (k) {
+        ['gradX','gradY','gradSpread','gradAngle','patternOp','stars','ornScale','ornY','ringW','ribbonY','ribbonW','arcR','arcSize'].forEach(function (k) {
             output(k, state[k], k === 'gradAngle' ? '°' : (k === 'stars' ? '' : '%'));
         });
     }
@@ -73,7 +73,7 @@
             if (k === 'mark.value') { state.mark.type = String(v).trim() === '' ? 'none' : 'initials'; }
             if (k === 'titleSize') { output('titleSize', v, 'x'); }
             if (k === 'tracking') { output('tracking', v, 'px'); }
-            if (['gradX','gradY','gradSpread','patternOp'].indexOf(k) >= 0) { output(k, v, '%'); }
+            if (['gradX','gradY','gradSpread','patternOp','ornScale','ornY','ringW','ribbonY','ribbonW','arcR','arcSize'].indexOf(k) >= 0) { output(k, v, '%'); }
             if (k === 'gradAngle') { output(k, v, '°'); }
             if (k === 'stars') { output(k, v, ''); }
             sync();
@@ -112,6 +112,17 @@
             if (i >= 0) { state.images.splice(i, 1); selected = null; sync(); }
         });
     }
+
+    [['f-imgFlip', 'flip'], ['f-imgGray', 'gray']].forEach(function (pair) {
+        var el = document.getElementById(pair[0]);
+        if (!el) { return; }
+        el.addEventListener('change', function () {
+            var i = imgIndex();
+            if (i < 0) { return; }
+            state.images[i][pair[1]] = el.checked;
+            sync();
+        });
+    });
 
     ['imgW', 'imgRot', 'imgOp'].forEach(function (id) {
         var el = document.getElementById('f-' + id);
@@ -153,6 +164,10 @@
         output('imgW', Math.round(img.w * 100), '%');
         output('imgRot', img.rot || 0, '°');
         output('imgOp', Math.round((img.op == null ? 1 : img.op) * 100), '%');
+        var fl = document.getElementById('f-imgFlip');
+        var gr = document.getElementById('f-imgGray');
+        if (fl) { fl.checked = !!img.flip; }
+        if (gr) { gr.checked = !!img.gray; }
     }
 
     // ---- manijas de las capas ----

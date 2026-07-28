@@ -85,6 +85,12 @@ $uuid = (string) $template['uuid'];
             <select id="f-ornament" data-k="ornament">
                 <?php foreach (S::ORNAMENTS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
             </select>
+            <label for="f-ornScale">Tamaño del ornamento <output id="o-ornScale"></output></label>
+            <input type="range" id="f-ornScale" min="40" max="160" step="1" data-k="ornScale">
+            <label for="f-ornY">Alto del ornamento <output id="o-ornY"></output></label>
+            <input type="range" id="f-ornY" min="-25" max="25" step="1" data-k="ornY">
+            <label for="f-ringW">Grosor del borde <output id="o-ringW"></output></label>
+            <input type="range" id="f-ringW" min="3" max="18" step="0.5" data-k="ringW">
         </details>
 
         <details class="bde-group" open>
@@ -139,11 +145,26 @@ $uuid = (string) $template['uuid'];
             <label for="f-stars">Estrellas de nivel <output id="o-stars"></output></label>
             <input type="range" id="f-stars" min="0" max="5" step="1" data-k="stars">
 
+            <label for="f-ribbonStyle">Estilo de la cinta</label>
+            <select id="f-ribbonStyle" data-k="ribbonStyle">
+                <option value="tail">Con puntas</option>
+                <option value="flat">Recta</option>
+                <option value="folded">Plegada</option>
+            </select>
+            <label for="f-ribbonY">Alto de la cinta <output id="o-ribbonY"></output></label>
+            <input type="range" id="f-ribbonY" min="30" max="95" step="0.5" data-k="ribbonY">
+            <label for="f-ribbonW">Ancho de la cinta <output id="o-ribbonW"></output></label>
+            <input type="range" id="f-ribbonW" min="40" max="100" step="1" data-k="ribbonW">
+
             <label for="f-arcTop">Texto curvo arriba</label>
             <input type="text" id="f-arcTop" maxlength="34" data-k="arcTop">
 
             <label for="f-arcBottom">Texto curvo abajo</label>
             <input type="text" id="f-arcBottom" maxlength="34" data-k="arcBottom">
+            <label for="f-arcR">Radio del texto curvo <output id="o-arcR"></output></label>
+            <input type="range" id="f-arcR" min="26" max="44" step="0.5" data-k="arcR">
+            <label for="f-arcSize">Tamaño del texto curvo <output id="o-arcSize"></output></label>
+            <input type="range" id="f-arcSize" min="2.6" max="7" step="0.1" data-k="arcSize">
         </details>
 
         <details class="bde-group">
@@ -182,6 +203,8 @@ $uuid = (string) $template['uuid'];
                 <input type="range" id="f-imgRot" min="-180" max="180" step="1">
                 <label for="f-imgOp">Opacidad <output id="o-imgOp"></output></label>
                 <input type="range" id="f-imgOp" min="5" max="100" step="1">
+                <label class="bd-check"><input type="checkbox" id="f-imgFlip"> Espejar</label>
+                <label class="bd-check"><input type="checkbox" id="f-imgGray"> Sin color</label>
                 <button type="button" class="btn btn-sm" id="bde-remove">Quitar del diseño</button>
             </div>
         </details>

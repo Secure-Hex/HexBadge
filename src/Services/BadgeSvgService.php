@@ -157,6 +157,15 @@ final class BadgeSvgService
             'pattern'  => $pick($in['pattern'] ?? '', self::PATTERNS, 'none'),
             'patternOp'=> $num($in['patternOp'] ?? null, 2, 40, 12),
             'stars'    => (int) $num($in['stars'] ?? null, 0, 5, 0),
+            'ribbonY'  => $num($in['ribbonY'] ?? null, 30, 95, 69.5),
+            'ribbonW'  => $num($in['ribbonW'] ?? null, 40, 100, 80),
+            'ribbonStyle' => in_array($in['ribbonStyle'] ?? '', ['tail', 'flat', 'folded'], true)
+                ? (string) $in['ribbonStyle'] : 'tail',
+            'ornY'     => $num($in['ornY'] ?? null, -25, 25, 0),
+            'ornScale' => $num($in['ornScale'] ?? null, 40, 160, 100),
+            'ringW'    => $num($in['ringW'] ?? null, 3, 18, 8.5),
+            'arcR'     => $num($in['arcR'] ?? null, 26, 44, 37.2),
+            'arcSize'  => $num($in['arcSize'] ?? null, 2.6, 7, 4.5),
             'textShadow' => !empty($in['textShadow']),
             'ring'     => $pick($in['ring'] ?? '', self::RINGS, 'double'),
             'ornament' => $pick($in['ornament'] ?? '', self::ORNAMENTS, 'laurel'),
@@ -222,6 +231,8 @@ final class BadgeSvgService
                 'w'    => $num($img['w'] ?? null, 0.04, 0.9, 0.20),
                 'rot'  => $num($img['rot'] ?? null, -180, 180, 0),
                 'op'   => $num($img['op'] ?? null, 0.05, 1, 1),
+                'flip' => !empty($img['flip']),
+                'gray' => !empty($img['gray']),
             ];
         }
 
@@ -296,15 +307,23 @@ final class BadgeSvgService
             $x = $img['x'] * $vb - $w / 2;
             $y = $img['y'] * $vb - $h / 2;
 
-            $transform = $img['rot'] != 0.0
-                ? ' transform="rotate(' . round($img['rot'], 1) . ' ' . round($x + $w / 2, 1) . ' ' . round($y + $h / 2, 1) . ')"'
-                : '';
+            $cxi = $x + $w / 2;
+            $cyi = $y + $h / 2;
+            $tr  = [];
+            if ($img['rot'] != 0.0) {
+                $tr[] = 'rotate(' . round($img['rot'], 1) . ' ' . round($cxi, 1) . ' ' . round($cyi, 1) . ')';
+            }
+            if ($img['flip']) {
+                $tr[] = 'translate(' . round($cxi * 2, 1) . ' 0) scale(-1 1)';
+            }
+            $transform = $tr === [] ? '' : ' transform="' . implode(' ', $tr) . '"';
+            $filter    = $img['gray'] ? ' filter="url(#gray' . $this->uid . ')"' : '';
 
             $out .= '<image href="data:' . $mime . ';base64,' . base64_encode($bytes) . '"'
                 . ' x="' . round($x, 1) . '" y="' . round($y, 1) . '"'
                 . ' width="' . round($w, 1) . '" height="' . round($h, 1) . '"'
                 . ($img['op'] < 1 ? ' opacity="' . round($img['op'], 2) . '"' : '')
-                . $transform
+                . $transform . $filter
                 . ' preserveAspectRatio="xMidYMid meet"/>';
         }
 
@@ -442,6 +461,7 @@ final class BadgeSvgService
             . '<feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0f1b2e" flood-opacity=".34"/></filter>'
             . '<filter id="tsh' . $u . '" x="-20%" y="-20%" width="140%" height="140%">'
             . '<feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#000000" flood-opacity=".45"/></filter>'
+            . '<filter id="gray' . $u . '"><feColorMatrix type="saturate" values="0"/></filter>'
             . '<clipPath id="clipShape' . $u . '"><path d="' . $this->shapePath($r['shape'], $vb / 2, $vb * 0.455) . '"/></clipPath>'
             . $this->patternDef($r);
 
@@ -515,7 +535,7 @@ final class BadgeSvgService
         if ($r['ring'] === 'none') {
             return '';
         }
-        $w   = $rad * 0.085;
+        $w   = $rad * ($r['ringW'] / 100);
         $out = '<path d="' . $this->shapePath($r['shape'], $c, $rad - $w / 2)
             . '" fill="none" stroke="url(#ringGrad' . $this->uid . ')" stroke-width="' . round($w, 1) . '"/>';
 
@@ -550,7 +570,18 @@ final class BadgeSvgService
     private function ornamentElement(array $r, float $c, float $vb): string
     {
         $ink = $r['ink'];
-        return match ($r['ornament']) {
+        // El ornamento se escala y sube o baja: con una cinta alta o un título
+        // largo, la posición fija se cruzaba con el resto.
+        // Escalar alrededor del centro: llevar el origen al centro, escalar y
+        // volver. Aplicar la escala sola corre la figura hacia una esquina.
+        $g   = $r['ornScale'] != 100.0 || $r['ornY'] != 0.0
+            ? '<g transform="translate(' . round($c, 1) . ' ' . round($c + $vb * $r['ornY'] / 100, 1) . ') '
+              . 'scale(' . round($r['ornScale'] / 100, 3) . ') '
+              . 'translate(' . round(-$c, 1) . ' ' . round(-$c, 1) . ')">'
+            : '';
+        $close = $g !== '' ? '</g>' : '';
+
+        return $g . match ($r['ornament']) {
             'laurel' => $this->laurel($c, $vb, $ink),
             'stars'  => $this->starsRow($c, $vb, $ink),
             'rays'   => $this->rays($c, $vb, $ink),
@@ -558,7 +589,7 @@ final class BadgeSvgService
                 . ' L ' . $c . ' ' . ($vb * 0.705) . ' L ' . ($c + $vb * 0.13) . ' ' . ($vb * 0.665)
                 . '" fill="none" stroke="' . $ink . '" stroke-width="3" opacity=".55" stroke-linecap="round"/>',
             default  => '',
-        };
+        } . $close;
     }
 
     private function laurel(float $c, float $vb, string $ink): string
@@ -612,7 +643,7 @@ final class BadgeSvgService
         if ($r['arcTop'] === '' && $r['arcBottom'] === '') {
             return '';
         }
-        $rad  = $vb * 0.372;
+        $rad  = $vb * ($r['arcR'] / 100);
         $font = self::FONTS[$r['font']][0];
         $out  = '<defs>'
             . '<path id="arcT' . $this->uid . '" fill="none" d="M ' . ($c - $rad) . ' ' . $c . ' A ' . $rad . ' ' . $rad . ' 0 0 1 ' . ($c + $rad) . ' ' . $c . '"/>'
@@ -726,9 +757,9 @@ final class BadgeSvgService
 
     private function ribbon(array $r, float $c, float $vb): string
     {
-        $y = $vb * 0.695;
+        $y = $vb * $r['ribbonY'] / 100;
         $h = $vb * 0.115;
-        $w = $vb * 0.80;
+        $w = $vb * $r['ribbonW'] / 100;
         $x = $c - $w / 2;
         $n = $h * 0.42;
         $font = self::FONTS[$r['font']][0];
@@ -737,12 +768,28 @@ final class BadgeSvgService
         // la tinta general, o queda ilegible sobre un aro dorado o plateado.
         $band = self::shade($r['accent'], -0.1);
         $ink  = self::readable($band);
+        $out  = '';
 
-        return '<path d="M ' . round($x, 1) . ' ' . round($y, 1)
-            . ' H ' . round($x + $w, 1) . ' L ' . round($x + $w - $n, 1) . ' ' . round($y + $h / 2, 1)
-            . ' L ' . round($x + $w, 1) . ' ' . round($y + $h, 1)
-            . ' H ' . round($x, 1) . ' L ' . round($x + $n, 1) . ' ' . round($y + $h / 2, 1) . ' Z" '
-            . 'fill="' . $band . '"/>'
+        if ($r['ribbonStyle'] === 'folded') {
+            // Los dobleces que se ven por detrás son lo que da la sensación de
+            // que la cinta rodea la pieza en vez de estar apoyada encima.
+            $f = self::shade($band, -0.35);
+            $out .= '<path d="M ' . round($x - $vb * 0.045, 1) . ' ' . round($y - $h * 0.42, 1)
+                . ' l ' . round($vb * 0.05, 1) . ' 0 l 0 ' . round($h * 0.9, 1) . ' Z" fill="' . $f . '"/>'
+                . '<path d="M ' . round($x + $w + $vb * 0.045, 1) . ' ' . round($y - $h * 0.42, 1)
+                . ' l ' . round(-$vb * 0.05, 1) . ' 0 l 0 ' . round($h * 0.9, 1) . ' Z" fill="' . $f . '"/>';
+        }
+
+        $shape = match ($r['ribbonStyle']) {
+            'flat' => 'M ' . round($x, 1) . ' ' . round($y, 1) . ' H ' . round($x + $w, 1)
+                . ' V ' . round($y + $h, 1) . ' H ' . round($x, 1) . ' Z',
+            default => 'M ' . round($x, 1) . ' ' . round($y, 1)
+                . ' H ' . round($x + $w, 1) . ' L ' . round($x + $w - $n, 1) . ' ' . round($y + $h / 2, 1)
+                . ' L ' . round($x + $w, 1) . ' ' . round($y + $h, 1)
+                . ' H ' . round($x, 1) . ' L ' . round($x + $n, 1) . ' ' . round($y + $h / 2, 1) . ' Z',
+        };
+
+        return $out . '<path d="' . $shape . '" fill="' . $band . '"/>'
             . '<text x="' . $c . '" y="' . round($y + $h * 0.66, 1) . '" text-anchor="middle" '
             . 'style="font-family:' . $font . ';font-weight:700;font-size:' . round($vb * 0.048, 1)
             . 'px;fill:' . $ink . ';letter-spacing:' . round(1 + $r['tracking'] * 0.5, 1) . 'px">'
