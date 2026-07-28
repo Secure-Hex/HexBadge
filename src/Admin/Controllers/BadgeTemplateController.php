@@ -13,7 +13,7 @@ use HexBadge\Core\Session;
 use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\DiplomaTemplate;
-use HexBadge\Services\BadgeDesignService;
+use HexBadge\Services\BadgeSvgService;
 use HexBadge\Services\ImageService;
 use InvalidArgumentException;
 
@@ -84,6 +84,12 @@ final class BadgeTemplateController extends Controller
             if ($markUuid !== null) {
                 Session::flash('success', 'Template creado. Marcá dónde van los datos en el certificado.');
                 return $this->redirect('/admin/templates/' . $markUuid . '/certificate');
+            }
+
+            // Con insignia propia, el paso siguiente natural es diseñarla.
+            if ($request->input('image_mode') === 'design') {
+                Session::flash('success', 'Acreditación creada. Ahora diseñá su insignia.');
+                return $this->redirect('/admin/templates/' . $uuid . '/designer');
             }
 
             Session::flash('success', 'Template creado.');
@@ -279,65 +285,6 @@ final class BadgeTemplateController extends Controller
     }
 
     /**
-     * Ruta en disco del logo de una empresa, o null si no tiene.
-     * El diseñador lo incrusta dentro de la insignia cuando se pide.
-     */
-    private function logoPathFor(?int $companyId): ?string
-    {
-        if ($companyId === null) {
-            return null;
-        }
-        $row = \HexBadge\Core\Database::getInstance()->fetchOne(
-            'SELECT logo_filename FROM companies WHERE id = ? LIMIT 1',
-            [$companyId]
-        );
-        $name = (string) ($row['logo_filename'] ?? '');
-        if ($name === '') {
-            return null;
-        }
-        $path = BASE_PATH . '/apps/earner/public/uploads/logos/' . basename($name);
-
-        return is_file($path) ? $path : null;
-    }
-
-    /**
-     * Vista previa del diseñador: renderiza la receta que llega por query y
-     * devuelve la imagen. Es el MISMO render que produce el archivo final, así
-     * que lo que se ve es exactamente lo que se guarda.
-     *
-     * Va por GET y con la receta en la URL a propósito: la CSP del panel es
-     * `img-src 'self' data:`, así que una imagen servida desde un blob de
-     * `URL.createObjectURL()` quedaría bloqueada sin aviso.
-     */
-    public function designPreview(Request $request): Response
-    {
-        if ($r = Auth::requireRole('issuer')) {
-            return $r;
-        }
-
-        $raw = (string) $request->query('r', '{}');
-        if (strlen($raw) > 2048) {
-            return Response::notFound();
-        }
-
-        $decoded = json_decode($raw, true);
-        $recipe  = BadgeDesignService::sanitize(is_array($decoded) ? $decoded : []);
-        $company = (int) $request->query('company', '0');
-        $logo    = $recipe['logo'] && $company > 0 && $this->isCompanyAllowed($company)
-            ? $this->logoPathFor($company)
-            : null;
-        $bytes   = (new BadgeDesignService())->render($recipe, $logo);
-
-        return new Response($bytes, 200, [
-            'Content-Type'   => 'image/webp',
-            'Content-Length' => (string) strlen($bytes),
-            // Misma receta, misma imagen: volver a una combinación ya vista no
-            // vuelve a pegarle al servidor.
-            'Cache-Control'  => 'private, max-age=300',
-        ]);
-    }
-
-    /**
      * Resuelve la imagen de la acreditación: subida o diseñada. Único lugar
      * donde vive esa decisión, para que crear y editar no diverjan.
      *
@@ -354,24 +301,24 @@ final class BadgeTemplateController extends Controller
 
         if ($mode === 'design') {
             $decoded = json_decode((string) $request->input('design_recipe', '{}'), true);
-            $recipe  = BadgeDesignService::sanitize(is_array($decoded) ? $decoded : []);
-            $companyId = $current !== null
-                ? (isset($current['company_id']) ? (int) $current['company_id'] : null)
-                : $this->companyForWrite($request);
-            $bytes = (new BadgeDesignService())->render(
-                $recipe,
-                $recipe['logo'] ? $this->logoPathFor($companyId) : null
-            );
+            $recipe  = BadgeSvgService::sanitize(is_array($decoded) ? $decoded : []);
+            // Al crear, la insignia arranca con el nombre de la acreditación:
+            // el diseño fino se hace después, en el diseñador.
+            if ($recipe['title'] === '' && $recipe['mark']['value'] === '') {
+                // Asignación directa: el operador + no pisa una clave que ya
+                // existe, y 'title' viene del saneado como cadena vacía.
+                $recipe['title'] = (string) $request->input('name', 'Acreditación');
+                $recipe = BadgeSvgService::sanitize($recipe);
+            }
+            $svg = (new BadgeSvgService())->render($recipe);
 
             $prevName    = (string) ($current['image_filename'] ?? '');
             $wasDesigned = $current !== null && !empty($current['design_recipe']);
-            // Solo se reutiliza el archivo si el anterior también era diseñado:
-            // así los correos ya enviados siguen resolviendo a la misma URL.
-            $reuse    = $wasDesigned && str_ends_with($prevName, '.webp') ? $prevName : null;
-            $filename = $image->storeGeneratedBadge($bytes, $reuse);
+            $reuse       = $wasDesigned && str_ends_with($prevName, '.svg') ? $prevName : null;
+            $filename    = $image->storeGeneratedSvg($svg, $reuse);
 
             if ($current !== null && $reuse === null && $prevName !== '') {
-                $image->delete($prevName);   // venía de una subida: ese archivo ya no se usa
+                $image->delete($prevName);
             }
 
             return [

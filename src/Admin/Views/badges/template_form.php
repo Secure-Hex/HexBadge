@@ -62,68 +62,22 @@ $companies = $companies ?? [];
             Diseñarla acá
         </label>
         <div data-image-mode="design" class="mode-body">
-            <div class="bd-grid">
-                <div class="bd-controls">
-                    <label for="bd-shape">Forma</label>
-                    <select id="bd-shape">
-                        <?php foreach (\HexBadge\Services\BadgeDesignService::SHAPES as $k => $label): ?>
-                            <option value="<?= e($k) ?>"><?= e($label) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-
-                    <div class="bd-row">
-                        <span>
-                            <label for="bd-fill">Color principal</label>
-                            <input type="color" id="bd-fill" value="#1565d8">
-                        </span>
-                        <span>
-                            <label for="bd-accent">Color del borde</label>
-                            <input type="color" id="bd-accent" value="#0f1b2e">
-                        </span>
+            <?php if ($isEdit && $imgMode === 'design'): ?>
+                <div class="bd-grid">
+                    <img src="<?= e(badge_image_url((string) $t['image_filename'])) ?>" alt="Diseño actual"
+                         style="width:120px;border-radius:10px;background:var(--surface-2);padding:8px">
+                    <div>
+                        <p class="muted" style="margin:0 0 .6rem">Esta insignia se diseñó en la app.</p>
+                        <a class="btn btn-sm btn-primary" href="/admin/templates/<?= e((string) $t['uuid']) ?>/designer">Abrir el diseñador</a>
                     </div>
-
-                    <div class="bd-row">
-                        <span>
-                            <label for="bd-finish">Acabado</label>
-                            <select id="bd-finish">
-                                <?php foreach (\HexBadge\Services\BadgeDesignService::FINISHES as $k => $label): ?>
-                                    <option value="<?= e($k) ?>"><?= e($label) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </span>
-                        <span>
-                            <label for="bd-ring">Borde</label>
-                            <select id="bd-ring">
-                                <?php foreach (\HexBadge\Services\BadgeDesignService::RINGS as $k => $label): ?>
-                                    <option value="<?= e($k) ?>"><?= e($label) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </span>
-                    </div>
-
-                    <label class="bd-check"><input type="checkbox" id="bd-ribbon"> Mostrar el nivel en una cinta</label>
-                    <label class="bd-check"><input type="checkbox" id="bd-logo"> Incluir el logo de la empresa</label>
-
-                    <label for="bd-initials">Iniciales <span class="muted">(opcional, hasta 2)</span></label>
-                    <input type="text" id="bd-initials" maxlength="2" placeholder="Ej: SH">
-
-                    <label for="bd-title">Título</label>
-                    <input type="text" id="bd-title" maxlength="40" placeholder="Ej: Fundamentos de Seguridad Web">
-
-                    <label for="bd-level">Nivel <span class="muted">(opcional)</span></label>
-                    <input type="text" id="bd-level" maxlength="24" placeholder="Ej: Asistente">
                 </div>
-
-                <figure class="bd-preview">
-                    <img id="bd-preview" width="200" height="200" alt="Vista previa del diseño">
-                    <figcaption class="muted">Así se va a ver la insignia.</figcaption>
-                </figure>
-            </div>
-            <?php // En edición la empresa ya no es un select: se pasa acá para que la
-                  // vista previa pueda pedir su logo. ?>
-            <input type="hidden" name="design_recipe" id="bd-recipe"
-                   data-company="<?= (int) ($t['company_id'] ?? 0) ?>"
-                   value="<?= e((string) ($t['design_recipe'] ?? '')) ?>">
+            <?php else: ?>
+                <p class="muted" style="margin:0">
+                    Se crea una insignia base con el nombre de la acreditación y, al guardar,
+                    se abre el diseñador para elegir forma, colores, ornamentos, textos e imágenes.
+                </p>
+            <?php endif; ?>
+            <input type="hidden" name="design_recipe" id="bd-recipe" value="<?= e((string) ($t['design_recipe'] ?? '')) ?>">
         </div>
     </fieldset>
 
@@ -205,4 +159,3 @@ $companies = $companies ?? [];
 </form>
 
 <script src="<?= asset('js/template-form.js') ?>" defer></script>
-<script src="<?= asset('js/badge-designer.js') ?>" defer></script>
