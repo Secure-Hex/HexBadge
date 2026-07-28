@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0] - 2026-07-28
+### Nuevas funcionalidades
+- la credencial se presenta como pieza catalogada (afbbcf9)
+- la pantalla de decisión explica qué implica aceptar (5b4d762)
+- jerarquía profesional en el perfil y la vitrina de credenciales (97bd742)
+- el veredicto encabeza la página pública (107637e)
+- revisar el lote antes de emitirlo (42b4455)
+### Correcciones
+- las tarjetas de credencial se solapaban entre sí (bfc6dcd)
+- /buscar devolvía un fragmento sin layout (6f2fc12)
+- páginas de error, analytics honesto y consistencia de idioma (fc69136)
+- navegación, landmarks y propósito de los campos (a355ba9)
+- restaurar las confirmaciones de acciones destructivas (d225d77)
+### Otros
+- estilos de las piezas nuevas y limpieza del shell muerto (96fdf39)
+
 ## [1.1.1] - 2026-07-27
 ### Correcciones
 - regenerar el PDF cuando el earner cambia su nombre (b008c2a)
