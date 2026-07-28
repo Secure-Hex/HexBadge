@@ -13,6 +13,7 @@ use HexBadge\Core\Session;
 use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\DiplomaTemplate;
+use HexBadge\Services\BadgeDesignService;
 use HexBadge\Services\ImageService;
 use InvalidArgumentException;
 
@@ -64,19 +65,15 @@ final class BadgeTemplateController extends Controller
                 throw new InvalidArgumentException('Seleccioná una empresa válida para el template.');
             }
 
-            $image = new ImageService();
-            $file  = $request->file('image');
-            if ($file === null) {
-                throw new InvalidArgumentException('La imagen del badge es requerida');
-            }
-            $filename = $image->processUpload($file);
+            $img = $this->resolveImage($request, null);
 
             $uuid = uuid4();
             BadgeTemplate::create(array_merge($data, [
                 'uuid'           => $uuid,
                 'created_by'     => (int) Auth::id(),
                 'company_id'     => $companyId,
-                'image_filename' => $filename,
+                'image_filename' => $img['filename'],
+                'design_recipe'  => $img['recipe'],
             ]));
 
             Logger::audit('template.created', Auth::id(), 'badge_template', $uuid, ['name' => $data['name']]);
@@ -161,13 +158,14 @@ final class BadgeTemplateController extends Controller
         try {
             $data = $this->validateInput($request, false);
 
-            // Imagen opcional en edición; si se sube una nueva, reemplaza.
-            $file = $request->file('image');
-            if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                $image       = new ImageService();
-                $newFilename = $image->processUpload($file);
-                $image->delete((string) $template['image_filename']);
-                $data['image_filename'] = $newFilename;
+            // La imagen es opcional al editar: solo se toca si llegó una nueva
+            // subida o un diseño.
+            $img = $this->resolveImage($request, $template);
+            if ($img['filename'] !== null) {
+                $data['image_filename'] = $img['filename'];
+            }
+            if ($img['touched']) {
+                $data['design_recipe'] = $img['recipe'];
             }
 
             BadgeTemplate::updateById((int) $template['id'], $data);
@@ -278,6 +276,126 @@ final class BadgeTemplateController extends Controller
         Logger::audit('template.archived', Auth::id(), 'badge_template', $uuid, []);
         Session::flash('success', 'Template archivado.');
         return $this->redirect('/admin/templates');
+    }
+
+    /**
+     * Ruta en disco del logo de una empresa, o null si no tiene.
+     * El diseñador lo incrusta dentro de la insignia cuando se pide.
+     */
+    private function logoPathFor(?int $companyId): ?string
+    {
+        if ($companyId === null) {
+            return null;
+        }
+        $row = \HexBadge\Core\Database::getInstance()->fetchOne(
+            'SELECT logo_filename FROM companies WHERE id = ? LIMIT 1',
+            [$companyId]
+        );
+        $name = (string) ($row['logo_filename'] ?? '');
+        if ($name === '') {
+            return null;
+        }
+        $path = BASE_PATH . '/apps/earner/public/uploads/logos/' . basename($name);
+
+        return is_file($path) ? $path : null;
+    }
+
+    /**
+     * Vista previa del diseñador: renderiza la receta que llega por query y
+     * devuelve la imagen. Es el MISMO render que produce el archivo final, así
+     * que lo que se ve es exactamente lo que se guarda.
+     *
+     * Va por GET y con la receta en la URL a propósito: la CSP del panel es
+     * `img-src 'self' data:`, así que una imagen servida desde un blob de
+     * `URL.createObjectURL()` quedaría bloqueada sin aviso.
+     */
+    public function designPreview(Request $request): Response
+    {
+        if ($r = Auth::requireRole('issuer')) {
+            return $r;
+        }
+
+        $raw = (string) $request->query('r', '{}');
+        if (strlen($raw) > 2048) {
+            return Response::notFound();
+        }
+
+        $decoded = json_decode($raw, true);
+        $recipe  = BadgeDesignService::sanitize(is_array($decoded) ? $decoded : []);
+        $company = (int) $request->query('company', '0');
+        $logo    = $recipe['logo'] && $company > 0 && $this->isCompanyAllowed($company)
+            ? $this->logoPathFor($company)
+            : null;
+        $bytes   = (new BadgeDesignService())->render($recipe, $logo);
+
+        return new Response($bytes, 200, [
+            'Content-Type'   => 'image/webp',
+            'Content-Length' => (string) strlen($bytes),
+            // Misma receta, misma imagen: volver a una combinación ya vista no
+            // vuelve a pegarle al servidor.
+            'Cache-Control'  => 'private, max-age=300',
+        ]);
+    }
+
+    /**
+     * Resuelve la imagen de la acreditación: subida o diseñada. Único lugar
+     * donde vive esa decisión, para que crear y editar no diverjan.
+     *
+     * Devuelve las tres cosas por separado porque al reeditar un diseño se
+     * sobreescribe el mismo archivo —el nombre NO cambia— pero la receta sí.
+     *
+     * @param  array<string,mixed>|null $current Fila actual, o null al crear.
+     * @return array{filename:?string, recipe:?string, touched:bool}
+     */
+    private function resolveImage(Request $request, ?array $current): array
+    {
+        $image = new ImageService();
+        $mode  = $request->input('image_mode') === 'design' ? 'design' : 'upload';
+
+        if ($mode === 'design') {
+            $decoded = json_decode((string) $request->input('design_recipe', '{}'), true);
+            $recipe  = BadgeDesignService::sanitize(is_array($decoded) ? $decoded : []);
+            $companyId = $current !== null
+                ? (isset($current['company_id']) ? (int) $current['company_id'] : null)
+                : $this->companyForWrite($request);
+            $bytes = (new BadgeDesignService())->render(
+                $recipe,
+                $recipe['logo'] ? $this->logoPathFor($companyId) : null
+            );
+
+            $prevName    = (string) ($current['image_filename'] ?? '');
+            $wasDesigned = $current !== null && !empty($current['design_recipe']);
+            // Solo se reutiliza el archivo si el anterior también era diseñado:
+            // así los correos ya enviados siguen resolviendo a la misma URL.
+            $reuse    = $wasDesigned && str_ends_with($prevName, '.webp') ? $prevName : null;
+            $filename = $image->storeGeneratedBadge($bytes, $reuse);
+
+            if ($current !== null && $reuse === null && $prevName !== '') {
+                $image->delete($prevName);   // venía de una subida: ese archivo ya no se usa
+            }
+
+            return [
+                'filename' => $reuse !== null ? null : $filename,
+                'recipe'   => json_encode($recipe, JSON_UNESCAPED_UNICODE),
+                'touched'  => true,
+            ];
+        }
+
+        $file = $request->file('image');
+        if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $filename = $image->processUpload($file);
+            if ($current !== null && !empty($current['image_filename'])) {
+                $image->delete((string) $current['image_filename']);
+            }
+            // Deja de ser un diseño: la receta guardada ya no describe la imagen.
+            return ['filename' => $filename, 'recipe' => null, 'touched' => true];
+        }
+
+        if ($current === null) {
+            throw new InvalidArgumentException('Subí una imagen o diseñá una acá.');
+        }
+
+        return ['filename' => null, 'recipe' => null, 'touched' => false];
     }
 
     /**

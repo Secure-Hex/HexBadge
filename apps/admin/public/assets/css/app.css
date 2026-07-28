@@ -263,6 +263,34 @@ a.card:focus-visible{outline:none;box-shadow:var(--ring)}
    página entera en horizontal (y con ella el header) en pantallas chicas. */
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
+/* ---- Selector de modo (imagen subida o diseñada, tipo de diploma) ---- */
+.mode-set{border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:1rem 1.1rem;margin-top:1rem}
+.mode-set legend{padding:0 .4rem;font-weight:600;font-size:.9rem}
+.mode-opt{display:flex;align-items:center;gap:.5rem;margin:.35rem 0;font-weight:500;cursor:pointer}
+.mode-body{margin:.2rem 0 .9rem 1.7rem}
+.mode-body:last-child{margin-bottom:0}
+
+/* ---- Diseñador de insignias ---- */
+.bd-grid{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start}
+.bd-controls{flex:1 1 20rem;min-width:0}
+.bd-controls label{margin-top:.75rem}
+.bd-controls label:first-child{margin-top:0}
+.bd-row{display:flex;gap:1rem;flex-wrap:wrap}
+.bd-row span{flex:1 1 8rem;min-width:0}
+.bd-row input[type=color]{width:100%;max-width:none;height:2.4rem;padding:.2rem;cursor:pointer}
+.bd-check{display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-weight:500;cursor:pointer}
+.bd-check input{width:auto;max-width:none;margin:0}
+.bd-preview{flex:none;margin:0;text-align:center}
+/* Tablero de transparencia: la insignia se sirve sobre fondos distintos, y sin
+   esto un diseño claro parece recortado sobre blanco. */
+.bd-preview img{display:block;width:200px;height:200px;border-radius:var(--radius-md);
+  background-color:var(--surface);
+  background-image:linear-gradient(45deg,#eef2f8 25%,transparent 25%,transparent 75%,#eef2f8 75%),
+                   linear-gradient(45deg,#eef2f8 25%,transparent 25%,transparent 75%,#eef2f8 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px}
+.bd-preview figcaption{margin-top:.4rem;font-size:.78rem}
+
 /* Gráfico de barras por mes. Las columnas tienen ancho máximo: con pocos meses
    con datos, un flex:1 sin tope las estiraba hasta tapar el título. */
 .chart-months{display:flex;align-items:flex-end;gap:.5rem;height:200px;padding:.5rem 0 0;

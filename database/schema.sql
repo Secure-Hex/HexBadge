@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS badge_templates (
     criteria_url    VARCHAR(500) NULL,                 -- URL opcional de criterios
     image_filename  VARCHAR(255) NOT NULL,             -- Nombre del archivo en uploads/
     image_url       VARCHAR(500) NULL,                 -- URL pública de la imagen
+    design_recipe   JSON NULL,                         -- receta del diseñador integrado; NULL = imagen subida
     skills_tags     JSON NULL,                         -- ["pentesting","OWASP","web security"]
     issuer_name     VARCHAR(200) NOT NULL DEFAULT 'SecureHex',  -- legacy; el emisor real vive en companies
     issuer_url      VARCHAR(500) NOT NULL DEFAULT 'https://securehex.cl',

@@ -89,6 +89,51 @@ final class ImageService
         ], $this->maxBytes, true, self::MAX_EDGE_LOGO);
     }
 
+    /**
+     * Guarda una imagen de insignia generada por la app.
+     *
+     * Hace falta un camino propio porque `persist()` exige `is_uploaded_file()`
+     * y `move_uploaded_file()`, que fallan por diseño con cualquier archivo que
+     * no venga de un POST HTTP.
+     *
+     * Con `$reuse` sobreescribe ese archivo en lugar de crear uno nuevo: los
+     * correos ya enviados embeben la URL absoluta de la imagen, así que cambiar
+     * el nombre al reeditar un diseño los rompe en la bandeja de entrada de
+     * quien ya la recibió.
+     *
+     * @param string  $webpBytes Bytes de la imagen ya renderizada.
+     * @param ?string $reuse     Nombre existente a sobreescribir, si aplica.
+     */
+    public function storeGeneratedBadge(string $webpBytes, ?string $reuse = null): string
+    {
+        if (@getimagesizefromstring($webpBytes) === false) {
+            throw new RuntimeException('La imagen generada no es válida');
+        }
+
+        $dir = self::UPLOAD_DIR;
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new RuntimeException('No se pudo crear el directorio de uploads');
+        }
+
+        // Solo se reutiliza un .webp: si el nombre previo era de una subida en
+        // otro formato, se genera uno nuevo y el llamador borra el anterior.
+        $name = ($reuse !== null && strtolower(pathinfo($reuse, PATHINFO_EXTENSION)) === 'webp')
+            ? basename($reuse)
+            : bin2hex(random_bytes(16)) . '.webp';
+
+        // Mismo orden seguro que ImageOptimizerService: escribir aparte,
+        // verificar, y recién entonces ocupar el nombre definitivo.
+        $tmp = $dir . $name . '.tmp';
+        if (file_put_contents($tmp, $webpBytes) === false || @getimagesize($tmp) === false) {
+            @unlink($tmp);
+            throw new RuntimeException('No se pudo guardar la imagen generada');
+        }
+        rename($tmp, $dir . $name);
+        @chmod($dir . $name, 0644);
+
+        return $name;
+    }
+
     public function delete(string $filename): void
     {
         // Evitar path traversal: solo el basename.

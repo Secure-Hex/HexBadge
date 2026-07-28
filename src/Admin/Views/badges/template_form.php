@@ -34,11 +34,98 @@ $companies = $companies ?? [];
     <label for="criteria_url">URL de criterios (opcional)</label>
     <input type="url" id="criteria_url" name="criteria_url" value="<?= $val('criteria_url') ?>">
 
-    <label for="image">Imagen del badge <?= $isEdit ? '(dejar vacío para mantener la actual)' : '*' ?> — PNG/JPG/SVG, máx 2MB</label>
-    <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/svg+xml" <?= $isEdit ? '' : 'required' ?>>
-    <?php if ($isEdit && !empty($t['image_filename'])): ?>
-        <img src="<?= e(badge_image_url((string) $t['image_filename'])) ?>" alt="" style="width:80px;margin-top:8px;border-radius:6px">
-    <?php endif; ?>
+    <?php
+    // Sin `required` en el archivo: con el modo diseño activo el navegador se
+    // niega a enviar el formulario e intenta enfocar un campo oculto. La
+    // obligatoriedad la valida el servidor según el modo.
+    $imgMode = !empty($t['design_recipe']) ? 'design' : 'upload';
+    $issued  = (int) ($t['badges_issued'] ?? 0);
+    ?>
+    <fieldset class="mode-set">
+        <legend>Imagen de la acreditación <?= $isEdit ? '' : '*' ?></legend>
+
+        <label class="mode-opt">
+            <input type="radio" name="image_mode" value="upload" <?= $imgMode === 'upload' ? 'checked' : '' ?>>
+            Subir una imagen
+        </label>
+        <div data-image-mode="upload" class="mode-body">
+            <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/svg+xml">
+            <small class="muted">PNG, JPG o SVG, máximo 2MB.<?= $isEdit ? ' Dejalo vacío para mantener la actual.' : '' ?></small>
+            <?php if ($isEdit && !empty($t['image_filename']) && $imgMode === 'upload'): ?>
+                <img src="<?= e(badge_image_url((string) $t['image_filename'])) ?>" alt="Imagen actual"
+                     style="width:80px;margin-top:8px;border-radius:6px">
+            <?php endif; ?>
+        </div>
+
+        <label class="mode-opt">
+            <input type="radio" name="image_mode" value="design" <?= $imgMode === 'design' ? 'checked' : '' ?>>
+            Diseñarla acá
+        </label>
+        <div data-image-mode="design" class="mode-body">
+            <div class="bd-grid">
+                <div class="bd-controls">
+                    <label for="bd-shape">Forma</label>
+                    <select id="bd-shape">
+                        <?php foreach (\HexBadge\Services\BadgeDesignService::SHAPES as $k => $label): ?>
+                            <option value="<?= e($k) ?>"><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+
+                    <div class="bd-row">
+                        <span>
+                            <label for="bd-fill">Color principal</label>
+                            <input type="color" id="bd-fill" value="#1565d8">
+                        </span>
+                        <span>
+                            <label for="bd-accent">Color del borde</label>
+                            <input type="color" id="bd-accent" value="#0f1b2e">
+                        </span>
+                    </div>
+
+                    <div class="bd-row">
+                        <span>
+                            <label for="bd-finish">Acabado</label>
+                            <select id="bd-finish">
+                                <?php foreach (\HexBadge\Services\BadgeDesignService::FINISHES as $k => $label): ?>
+                                    <option value="<?= e($k) ?>"><?= e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </span>
+                        <span>
+                            <label for="bd-ring">Borde</label>
+                            <select id="bd-ring">
+                                <?php foreach (\HexBadge\Services\BadgeDesignService::RINGS as $k => $label): ?>
+                                    <option value="<?= e($k) ?>"><?= e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </span>
+                    </div>
+
+                    <label class="bd-check"><input type="checkbox" id="bd-ribbon"> Mostrar el nivel en una cinta</label>
+                    <label class="bd-check"><input type="checkbox" id="bd-logo"> Incluir el logo de la empresa</label>
+
+                    <label for="bd-initials">Iniciales <span class="muted">(opcional, hasta 2)</span></label>
+                    <input type="text" id="bd-initials" maxlength="2" placeholder="Ej: SH">
+
+                    <label for="bd-title">Título</label>
+                    <input type="text" id="bd-title" maxlength="40" placeholder="Ej: Fundamentos de Seguridad Web">
+
+                    <label for="bd-level">Nivel <span class="muted">(opcional)</span></label>
+                    <input type="text" id="bd-level" maxlength="24" placeholder="Ej: Asistente">
+                </div>
+
+                <figure class="bd-preview">
+                    <img id="bd-preview" width="200" height="200" alt="Vista previa del diseño">
+                    <figcaption class="muted">Así se va a ver la insignia.</figcaption>
+                </figure>
+            </div>
+            <?php // En edición la empresa ya no es un select: se pasa acá para que la
+                  // vista previa pueda pedir su logo. ?>
+            <input type="hidden" name="design_recipe" id="bd-recipe"
+                   data-company="<?= (int) ($t['company_id'] ?? 0) ?>"
+                   value="<?= e((string) ($t['design_recipe'] ?? '')) ?>">
+        </div>
+    </fieldset>
 
     <label for="skills_tags">Skills / etiquetas (separadas por coma)</label>
     <input type="text" id="skills_tags" name="skills_tags" value="<?= e($tagsValue) ?>" placeholder="pentesting, OWASP, web security">
@@ -113,7 +200,9 @@ $companies = $companies ?? [];
         </div>
     </fieldset>
 
-    <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem"><?= $isEdit ? 'Guardar cambios' : 'Crear template' ?></button>
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem"
+            <?php if ($isEdit && $issued > 0): ?>data-confirm-image="Esta acreditación ya emitió <?= $issued ?> credencial<?= $issued === 1 ? '' : 'es' ?>. Al cambiar la imagen, todas pasan a mostrar el diseño nuevo, incluidas las ya verificadas. ¿Confirmás?"<?php endif; ?>><?= $isEdit ? 'Guardar cambios' : 'Crear template' ?></button>
 </form>
 
 <script src="<?= asset('js/template-form.js') ?>" defer></script>
+<script src="<?= asset('js/badge-designer.js') ?>" defer></script>

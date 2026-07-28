@@ -67,6 +67,7 @@ $router->get('/admin', [DashboardController::class, 'index']);
 
 // --- Templates (específicas antes que {uuid}) ---
 $router->get('/admin/templates', [BadgeTemplateController::class, 'index']);
+$router->get('/admin/templates/design/preview', [BadgeTemplateController::class, 'designPreview']);
 $router->get('/admin/templates/new', [BadgeTemplateController::class, 'create']);
 $router->post('/admin/templates', [BadgeTemplateController::class, 'store']);
 $router->get('/admin/templates/{uuid}/edit', [BadgeTemplateController::class, 'edit']);

@@ -297,7 +297,10 @@ SET @s := (SELECT IF(COUNT(*)=0,'ALTER TABLE issued_badges ADD COLUMN recipient_
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- Backfill: correo primario de cada earner (idempotente)
-INSERT INTO earner_emails (earner_id, email, is_primary)
+-- IGNORE porque el NOT EXISTS de abajo mira earner_id, pero la clave única es
+-- por email: si un correo ya quedó bajo otro earner (una fusión), el INSERT
+-- reventaba y cortaba la migración, dejando sin aplicar todo lo que sigue.
+INSERT IGNORE INTO earner_emails (earner_id, email, is_primary)
 SELECT id, email, 1 FROM earners
 WHERE NOT EXISTS (SELECT 1 FROM earner_emails ee WHERE ee.earner_id = earners.id);
 
@@ -312,3 +315,13 @@ WHERE ib.recipient_email IS NULL;
 -- Luego, en el panel (como superadmin): revisá Empresas, ajustá los
 -- datos del emisor y reasigná usuarios a su empresa si hace falta.
 -- ============================================================
+
+-- ---------------------------------------------------------------------------
+-- 015 — badge_templates.design_recipe (diseñador de insignias integrado)
+-- ---------------------------------------------------------------------------
+SET @s := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE badge_templates ADD COLUMN design_recipe JSON NULL',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='badge_templates' AND COLUMN_NAME='design_recipe');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
