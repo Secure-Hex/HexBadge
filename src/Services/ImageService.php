@@ -164,7 +164,7 @@ final class ImageService
         @chmod($dir . $name, 0644);
         // Lo generamos nosotros, pero pasa igual por el saneado: es el mismo
         // archivo que después se sirve al público.
-        $this->sanitizeSvg($dir . $name);
+        $this->sanitizeSvg($dir . $name, true);
 
         return $name;
     }
@@ -359,12 +359,25 @@ final class ImageService
     /**
      * Sanitiza un SVG eliminando scripts, handlers on* y URIs javascript:.
      */
-    /** Elementos SVG de presentación permitidos (allowlist). Todo lo demás se elimina. */
+    /**
+     * Elementos SVG de presentación permitidos (allowlist). Todo lo demás se elimina.
+     *
+     * Las primitivas de filtro son matemática sobre píxeles: no piden red ni
+     * ejecutan nada, así que entran todas. `feImage` queda afuera a propósito —
+     * es la única que resuelve una URL externa.
+     *
+     * Los grupos de luz (feDistantLight y hermanos) van completos aunque el
+     * diseñador use solo uno: dejar el padre y quitarle la luz produce un filtro
+     * roto, que es el mismo modo de falla que esta lista ya causó una vez.
+     */
     private const SVG_ALLOWED_TAGS = [
         'svg', 'g', 'defs', 'title', 'desc', 'path', 'rect', 'circle', 'ellipse', 'line',
-        'polyline', 'polygon', 'text', 'tspan', 'lineargradient', 'radialgradient', 'stop',
-        'clippath', 'mask', 'pattern', 'symbol', 'marker', 'filter', 'fegaussianblur',
-        'feoffset', 'feblend', 'fecolormatrix', 'feflood', 'fecomposite', 'femerge', 'femergenode',
+        'polyline', 'polygon', 'text', 'tspan', 'textpath', 'use', 'image',
+        'lineargradient', 'radialgradient', 'stop',
+        'clippath', 'mask', 'pattern', 'symbol', 'marker',
+        'filter', 'fegaussianblur', 'feoffset', 'feblend', 'fecolormatrix', 'feflood',
+        'fecomposite', 'femerge', 'femergenode', 'fedropshadow', 'feturbulence',
+        'fespecularlighting', 'fediffuselighting', 'fedistantlight', 'fepointlight', 'fespotlight',
     ];
 
     /**
@@ -374,8 +387,13 @@ final class ImageService
      * parsea XML de forma confiable (entidades, CDATA, namespaces, <use>, <animate>);
      * el DOM sí. Si el archivo no parsea como XML o falta ext-dom, se vacía
      * (fail-closed: no se sirve un SVG que no pudimos sanitizar).
+     *
+     * `$allowDataImages` habilita `href="data:image/..."`, que es como el
+     * diseñador embebe sus capas. Solo lo pide lo que generamos nosotros: en una
+     * subida el marcado lo escribe quien sube, y ahí la regla sigue siendo que
+     * toda referencia tiene que ser interna.
      */
-    private function sanitizeSvg(string $path): void
+    private function sanitizeSvg(string $path, bool $allowDataImages = false): void
     {
         $content = file_get_contents($path);
         if ($content === false || trim($content) === '') {
@@ -399,7 +417,7 @@ final class ImageService
             return;
         }
 
-        $this->scrubSvgNode($doc->documentElement);
+        $this->scrubSvgNode($doc->documentElement, $allowDataImages);
         $clean = $doc->saveXML();
         file_put_contents($path, $clean !== false ? $clean : '');
     }
@@ -408,7 +426,7 @@ final class ImageService
      * Recorre un nodo SVG (recursivo) eliminando elementos fuera de la allowlist
      * y atributos peligrosos.
      */
-    private function scrubSvgNode(\DOMElement $node): void
+    private function scrubSvgNode(\DOMElement $node, bool $allowDataImages = false): void
     {
         foreach (iterator_to_array($node->childNodes) as $child) {
             if (!$child instanceof \DOMElement) {
@@ -419,7 +437,7 @@ final class ImageService
                 $node->removeChild($child);
                 continue;
             }
-            $this->scrubSvgNode($child);
+            $this->scrubSvgNode($child, $allowDataImages);
         }
 
         if ($node->hasAttributes()) {
@@ -428,7 +446,9 @@ final class ImageService
                 $val     = trim((string) $attr->nodeValue);
                 $isEvent = str_starts_with($name, 'on');
                 $isHref  = ($name === 'href' || str_ends_with($name, ':href'));
-                $badHref = $isHref && !str_starts_with($val, '#');
+                $dataImg = $allowDataImages
+                    && preg_match('#^data:image/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$#i', $val) === 1;
+                $badHref = $isHref && !str_starts_with($val, '#') && !$dataImg;
                 $hasJs   = stripos($val, 'javascript:') !== false;
                 if ($isEvent || $badHref || $hasJs) {
                     $node->removeAttributeNode($attr);
