@@ -24,6 +24,7 @@ use HexBadge\Admin\Controllers\AnalyticsController;
 use HexBadge\Admin\Controllers\UserController;
 use HexBadge\Admin\Controllers\ApiKeyController;
 use HexBadge\Admin\Controllers\AuditController;
+use HexBadge\Admin\Controllers\MaintenanceController;
 use HexBadge\Admin\Controllers\SettingsController;
 use HexBadge\Admin\Controllers\CertificateController;
 use HexBadge\Admin\Controllers\DiplomaTemplateController;
@@ -143,6 +144,8 @@ $router->get('/admin/fonts/{id}/file', [FontController::class, 'file']);
 $router->post('/admin/fonts/{id}/delete', [FontController::class, 'delete']);
 
 // --- Configuración (SMTP) ---
+$router->get('/admin/maintenance/images', [MaintenanceController::class, 'images']);
+$router->post('/admin/maintenance/images', [MaintenanceController::class, 'optimizeImages']);
 $router->get('/admin/settings', [SettingsController::class, 'index']);
 $router->post('/admin/settings', [SettingsController::class, 'save']);
 $router->post('/admin/settings/test', [SettingsController::class, 'test']);

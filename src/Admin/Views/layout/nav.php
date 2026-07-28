@@ -70,6 +70,7 @@ $item = static function (string $href, string $label, string $key) use ($active,
             <?= $item('/admin/audit', 'Auditoría', 'audit') ?>
             <?php if ($role === 'superadmin'): ?>
                 <?= $item('/admin/settings', 'Configuración', 'smtp') ?>
+                <?= $item('/admin/maintenance/images', 'Optimizar imágenes', 'images') ?>
             <?php endif; ?>
         <?php endif; ?>
     </nav>
