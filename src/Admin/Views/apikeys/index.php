@@ -9,9 +9,13 @@ use HexBadge\Core\CSRF;
 <h1>API Keys</h1>
 
 <?php if (!empty($newKey)): ?>
-    <div class="alert alert-success">
-        Tu nueva API key (se muestra una sola vez):<br>
+    <div class="alert alert-warn" role="alert">
+        <strong>Copiala ahora: no vas a poder volver a verla.</strong>
+        Guardala en tu gestor de secretos; si la perdés hay que revocarla y crear otra.
         <code style="display:block;margin-top:.5rem;word-break:break-all;font-size:.95rem"><?= e($newKey) ?></code>
+        <button type="button" class="btn btn-sm" style="margin-top:.6rem" data-copy="<?= e($newKey) ?>">
+            <span>Copiar API key</span>
+        </button>
     </div>
 <?php endif; ?>
 
@@ -50,7 +54,7 @@ use HexBadge\Core\CSRF;
                     <td><?= ((int) $k['is_active'] === 1) ? '<span class="badge-status status-accepted">activa</span>' : '<span class="badge-status status-revoked">revocada</span>' ?></td>
                     <td>
                         <?php if ((int) $k['is_active'] === 1): ?>
-                            <form method="POST" action="/admin/api-keys/<?= (int) $k['id'] ?>/revoke" style="display:inline" onsubmit="return confirm('¿Revocar esta key?')">
+                            <form method="POST" action="/admin/api-keys/<?= (int) $k['id'] ?>/revoke" style="display:inline" data-confirm="¿Revocar esta key?">
                                 <?= CSRF::field() ?>
                                 <button type="submit" class="btn btn-sm btn-danger">Revocar</button>
                             </form>

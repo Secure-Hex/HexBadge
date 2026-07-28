@@ -42,7 +42,7 @@ use HexBadge\Core\CSRF;
             <td style="text-align:right">
                 <?php if ((int) $f['is_builtin'] === 0): ?>
                     <form method="POST" action="/admin/fonts/<?= (int) $f['id'] ?>/delete" style="display:inline"
-                          onsubmit="return confirm('¿Eliminar esta fuente? Los certificados que la usen volverán a la fuente por defecto.')">
+                          data-confirm="¿Eliminar esta fuente? Los certificados que la usen volverán a la fuente por defecto.">
                         <?= CSRF::field() ?>
                         <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
                     </form>

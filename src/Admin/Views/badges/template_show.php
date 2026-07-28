@@ -69,7 +69,7 @@ $t = $template;
             <?php endif; ?>
             <?php if ($t['state'] !== 'archived'): ?>
                 <form method="POST" action="/admin/templates/<?= e((string) $t['uuid']) ?>/archive" style="display:inline"
-                      onsubmit="return confirm('¿Archivar este template?')">
+                      data-confirm="¿Archivar este template?">
                     <?= CSRF::field() ?>
                     <button type="submit" class="btn btn-danger">Archivar</button>
                 </form>

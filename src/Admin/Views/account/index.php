@@ -31,7 +31,7 @@ use HexBadge\Core\CSRF;
     <?php if ($totpEnabled): ?>
         <p><span class="badge-status status-accepted">Activo</span> Tu cuenta pide un código TOTP al ingresar.</p>
         <form method="POST" action="/admin/account/totp/disable" autocomplete="off"
-              onsubmit="return confirm('¿Desactivar el 2FA?')">
+              data-confirm="¿Desactivar el 2FA?">
             <?= CSRF::field() ?>
             <label for="password">Confirmá con tu contraseña para desactivar</label>
             <input type="password" id="password" name="password" required>

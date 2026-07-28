@@ -32,7 +32,7 @@ use HexBadge\Core\CSRF;
                     <a class="btn btn-sm" href="/admin/diploma-templates/<?= e((string) $d['uuid']) ?>/mark"><?= $configured ? 'Reconfigurar' : 'Marcar' ?></a>
                     <a class="btn btn-sm" href="/admin/diploma-templates/<?= e((string) $d['uuid']) ?>/edit">Editar</a>
                     <form method="POST" action="/admin/diploma-templates/<?= e((string) $d['uuid']) ?>/delete" style="display:inline"
-                          onsubmit="return confirm('¿Borrar esta plantilla de diploma?')">
+                          data-confirm="¿Borrar esta plantilla de diploma?">
                         <?= CSRF::field() ?>
                         <button class="btn btn-sm btn-danger" type="submit">Borrar</button>
                     </form>

@@ -129,7 +129,7 @@ $textRow = static function (string $key, string $label, bool $optional, string $
 
 <?php if ($deleteUrl !== null): ?>
 <form method="POST" action="<?= e((string) $deleteUrl) ?>"
-      onsubmit="return confirm('<?= e((string) $deleteConfirm) ?>')" style="margin-top:1rem">
+      data-confirm="<?= e((string) $deleteConfirm) ?>" style="margin-top:1rem">
     <?= CSRF::field() ?>
     <button type="submit" class="btn btn-danger btn-sm"><?= e((string) $deleteLabel) ?></button>
 </form>

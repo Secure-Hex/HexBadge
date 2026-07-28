@@ -116,19 +116,4 @@ $companies = $companies ?? [];
     <button type="submit" class="btn btn-primary btn-block" style="margin-top:1rem"><?= $isEdit ? 'Guardar cambios' : 'Crear template' ?></button>
 </form>
 
-<script>
-(function () {
-    var form = document.currentScript.previousElementSibling;
-    function sync() {
-        var sel = document.querySelector('input[name="cert_mode"]:checked');
-        var v = sel ? sel.value : 'none';
-        document.querySelectorAll('[data-cert-mode]').forEach(function (el) {
-            el.style.display = el.getAttribute('data-cert-mode') === v ? '' : 'none';
-        });
-    }
-    document.querySelectorAll('input[name="cert_mode"]').forEach(function (r) {
-        r.addEventListener('change', sync);
-    });
-    sync();
-})();
-</script>
+<script src="<?= asset('js/template-form.js') ?>" defer></script>

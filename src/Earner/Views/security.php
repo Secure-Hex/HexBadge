@@ -42,7 +42,7 @@ use HexBadge\Core\CSRF;
         </div>
         <?php if ($totpEnabled): ?>
             <p class="muted sec-card-desc">Te pedimos un código de tu app de autenticación cada vez que ingresás.</p>
-            <form method="POST" action="/me/security/totp/disable" autocomplete="off" onsubmit="return confirm('¿Desactivar el 2FA?')">
+            <form method="POST" action="/me/security/totp/disable" autocomplete="off" data-confirm="¿Desactivar el 2FA?">
                 <?= CSRF::field() ?>
                 <label for="password">Confirmá con tu contraseña para desactivar</label>
                 <input type="password" id="password" name="password" required>

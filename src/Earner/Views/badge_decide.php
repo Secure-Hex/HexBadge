@@ -33,7 +33,7 @@ $b = $badge;
             <?= CSRF::field() ?>
             <button type="submit" class="btn btn-primary">Aceptar badge</button>
         </form>
-        <form method="POST" action="/me/badge/<?= e((string) $b['uuid']) ?>/reject" onsubmit="return confirm('¿Rechazar este badge? No podrás recuperarlo desde acá.')">
+        <form method="POST" action="/me/badge/<?= e((string) $b['uuid']) ?>/reject" data-confirm="¿Rechazar este badge? No podrás recuperarlo desde acá.">
             <?= CSRF::field() ?>
             <button type="submit" class="btn">Rechazar</button>
         </form>
