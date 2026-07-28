@@ -129,6 +129,7 @@ final class BadgeSvgService
             'tracking'  => $num($in['tracking'] ?? null, 0, 12, 0),
             'logo'      => !empty($in['logo']),
             'images'    => self::sanitizeImages($in['images'] ?? null),
+            'pos'       => self::sanitizePos($in['pos'] ?? null),
         ];
     }
 
@@ -184,6 +185,35 @@ final class BadgeSvgService
     }
 
     /**
+     * Posiciones manuales de los bloques de texto.
+     *
+     * Solo aparecen los que se movieron a mano: el resto sigue el orden
+     * automático, para que escribir un título no obligue a acomodarlo.
+     *
+     * @return array<string,array{x:float,y:float}>
+     */
+    private static function sanitizePos(mixed $in): array
+    {
+        if (!is_array($in)) {
+            return [];
+        }
+        $out = [];
+        foreach (['mark', 'title', 'level'] as $k) {
+            if (!isset($in[$k]) || !is_array($in[$k])) {
+                continue;
+            }
+            $x = $in[$k]['x'] ?? null;
+            $y = $in[$k]['y'] ?? null;
+            if (!is_numeric($x) || !is_numeric($y)) {
+                continue;
+            }
+            $out[$k] = ['x' => max(0.0, min(1.0, (float) $x)), 'y' => max(0.0, min(1.0, (float) $y))];
+        }
+
+        return $out;
+    }
+
+    /**
      * Embebe las capas de imagen.
      *
      * Van como data URI y no como enlace porque un SVG mostrado dentro de un
@@ -202,9 +232,20 @@ final class BadgeSvgService
             if ($bytes === '' || strlen($bytes) > 400 * 1024) {
                 continue;   // una imagen enorme haría inmanejable el SVG
             }
-            $info = @getimagesizefromstring($bytes);
-            $mime = is_array($info) ? (string) $info['mime'] : 'image/png';
-            $ratio = is_array($info) && $info[0] > 0 ? $info[1] / $info[0] : 1.0;
+            // getimagesizefromstring() no entiende SVG: es vectorial, no un mapa
+            // de bits. Sin este caso aparte, un SVG se embebía declarado como
+            // PNG y el navegador no mostraba nada.
+            if (str_ends_with(strtolower($img['file']), '.svg') || str_contains(substr($bytes, 0, 512), '<svg')) {
+                $mime  = 'image/svg+xml';
+                $ratio = self::svgRatio($bytes);
+            } else {
+                $info  = @getimagesizefromstring($bytes);
+                if (!is_array($info)) {
+                    continue;   // no es una imagen que sepamos embeber
+                }
+                $mime  = (string) $info['mime'];
+                $ratio = $info[0] > 0 ? $info[1] / $info[0] : 1.0;
+            }
 
             $w = $img['w'] * $vb;
             $h = $w * $ratio;
@@ -263,13 +304,15 @@ final class BadgeSvgService
         }
 
         $body .= $this->imageLayers($r, $vb);
-        $body .= $this->centerText($r, $c, $vb, ($logoDataUri !== null && $r['logo']) || $r['images'] !== []);
+        $layout = [];
+        $body .= $this->centerText($r, $c, $vb, ($logoDataUri !== null && $r['logo']) || $r['images'] !== [], $layout);
         if ($r['ribbon'] && $r['level'] !== '') {
             $body .= $this->ribbon($r, $c, $vb);
         }
 
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' . $vb . ' ' . $vb . '" '
-            . 'width="' . $vb . '" height="' . $vb . '" role="img">'
+            . 'width="' . $vb . '" height="' . $vb . '" role="img" '
+            . 'data-layout="' . e(json_encode($layout)) . '">'
             . '<defs>' . $defs . '</defs>'
             . $body
             . '</svg>';
@@ -455,8 +498,17 @@ final class BadgeSvgService
         return $out;
     }
 
-    /** Iniciales, título y nivel en el centro. */
-    private function centerText(array $r, float $c, float $vb, bool $hasLogo): string
+    /**
+     * Iniciales, título y nivel.
+     *
+     * Cada bloque cae en su lugar salvo que se lo haya movido a mano, en cuyo
+     * caso manda la posición guardada. Las posiciones que terminan usándose se
+     * publican en `data-layout` del SVG: el editor dibuja ahí sus manijas en vez
+     * de recalcular el mismo layout por su cuenta y arriesgarse a diferir.
+     *
+     * @param array<string,array{x:float,y:float}> $layout Se llena con lo usado.
+     */
+    private function centerText(array $r, float $c, float $vb, bool $hasLogo, array &$layout = []): string
     {
         $font  = self::FONTS[$r['font']][0];
         $out   = '';
@@ -464,7 +516,7 @@ final class BadgeSvgService
         $level = $r['ribbon'] ? '' : $r['level'];
 
         $blocks = [];
-        if ($mark !== '')      { $blocks[] = ['mark', $mark]; }
+        if ($mark !== '')       { $blocks[] = ['mark', $mark]; }
         if ($r['title'] !== '') { $blocks[] = ['title', $r['title']]; }
         if ($level !== '')      { $blocks[] = ['level', $level]; }
         if ($blocks === []) {
@@ -477,31 +529,39 @@ final class BadgeSvgService
         }
 
         foreach ($blocks as [$kind, $text]) {
+            $manual = $r['pos'][$kind] ?? null;
+            $cx     = $manual !== null ? $manual['x'] * $vb : $c;
+            $cy     = $manual !== null ? $manual['y'] * $vb : null;
+
             if ($kind === 'mark') {
                 $size = $vb * 0.155;
-                $out .= '<text x="' . $c . '" y="' . round($y, 1) . '" text-anchor="middle" '
+                $ty   = $cy ?? $y;
+                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle" '
                     . 'style="font-family:' . $font . ';font-weight:800;font-size:' . round($size, 1)
                     . 'px;fill:' . $r['ink'] . ';letter-spacing:' . round($r['tracking'], 1) . 'px">'
                     . e($text) . '</text>';
-                $y += $size * 0.72;
+                $layout['mark'] = ['x' => $cx / $vb, 'y' => $ty / $vb, 'h' => $size / $vb];
+                $y = $ty + $size * 0.72;
             } elseif ($kind === 'title') {
-                // Sin motor de layout: se parte en líneas por longitud y el
-                // tamaño baja según cuántas queden.
                 $lines = self::wrap($text, 18, 3);
                 $size  = $vb * 0.072 * $r['titleSize'] * (count($lines) > 2 ? 0.86 : 1);
+                $ty    = $cy ?? $y;
                 foreach ($lines as $i => $line) {
-                    $out .= '<text x="' . $c . '" y="' . round($y + $i * $size * 1.16, 1) . '" text-anchor="middle" '
+                    $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty + $i * $size * 1.16, 1) . '" text-anchor="middle" '
                         . 'style="font-family:' . $font . ';font-weight:700;font-size:' . round($size, 1)
                         . 'px;fill:' . $r['ink'] . ';letter-spacing:' . round($r['tracking'] * 0.5, 1) . 'px">'
                         . e($line) . '</text>';
                 }
-                $y += count($lines) * $size * 1.16 + $vb * 0.012;
+                $layout['title'] = ['x' => $cx / $vb, 'y' => $ty / $vb, 'h' => count($lines) * $size * 1.16 / $vb];
+                $y = $ty + count($lines) * $size * 1.16 + $vb * 0.012;
             } else {
                 $size = $vb * 0.052;
-                $out .= '<text x="' . $c . '" y="' . round($y + $size * 0.6, 1) . '" text-anchor="middle" '
+                $ty   = ($cy ?? $y) + ($cy === null ? $size * 0.6 : 0);
+                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle" '
                     . 'style="font-family:' . $font . ';font-weight:500;font-size:' . round($size, 1)
                     . 'px;fill:' . $r['ink'] . ';opacity:.92;letter-spacing:' . round(1 + $r['tracking'] * 0.5, 1) . 'px">'
                     . e($text) . '</text>';
+                $layout['level'] = ['x' => $cx / $vb, 'y' => $ty / $vb, 'h' => $size / $vb];
             }
         }
 
@@ -591,6 +651,30 @@ final class BadgeSvgService
     }
 
     // ---------- utilidades ----------
+
+    /**
+     * Proporción alto/ancho de un SVG, leída del viewBox o de width/height.
+     * Sin esto habría que asumir cuadrado y los logotipos apaisados saldrían
+     * estirados.
+     */
+    private static function svgRatio(string $svg): float
+    {
+        $head = substr($svg, 0, 2048);
+        if (preg_match('/viewBox\s*=\s*["\']\s*[-\d.]+[,\s]+[-\d.]+[,\s]+([\d.]+)[,\s]+([\d.]+)/i', $head, $m)) {
+            $w = (float) $m[1];
+            $h = (float) $m[2];
+            if ($w > 0 && $h > 0) {
+                return $h / $w;
+            }
+        }
+        if (preg_match('/\bwidth\s*=\s*["\']([\d.]+)/i', $head, $mw)
+            && preg_match('/\bheight\s*=\s*["\']([\d.]+)/i', $head, $mh)
+            && (float) $mw[1] > 0) {
+            return (float) $mh[1] / (float) $mw[1];
+        }
+
+        return 1.0;
+    }
 
     /** @return array<int,string> */
     private static function wrap(string $text, int $perLine, int $maxLines): array

@@ -35,12 +35,13 @@ $uuid = (string) $template['uuid'];
             <div class="bde-handles" id="bde-handles"></div>
         </div>
         <p class="muted bde-hint">
-            Arrastrá una imagen para moverla y usá su esquina para cambiar el tamaño.
+            Arrastrá cualquier texto o imagen para moverlo; la esquina de una imagen cambia su tamaño.
             Con la imagen seleccionada, las flechas la mueven y <kbd>Supr</kbd> la quita.
         </p>
 
         <form method="POST" action="/admin/templates/<?= e($uuid) ?>/designer" class="bde-save">
             <?= CSRF::field() ?>
+            <button type="button" class="btn btn-sm" id="bde-reset-text" hidden>Devolver el texto a su lugar</button>
             <input type="hidden" name="recipe" id="bde-recipe" value="<?= e(json_encode($recipe, JSON_UNESCAPED_UNICODE)) ?>">
             <button type="submit" class="btn btn-primary"
                     <?= $issued > 0 ? 'data-confirm="Se van a actualizar las ' . $issued . ' credenciales ya emitidas con este diseño. ¿Confirmás?"' : '' ?>>

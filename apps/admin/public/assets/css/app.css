@@ -281,6 +281,10 @@ a.card:focus-visible{outline:none;box-shadow:var(--ring)}
 .bde-handle:hover{border-color:rgba(21,101,216,.5)}
 .bde-handle.is-sel{border-color:var(--primary);border-style:solid}
 .bde-handle:focus-visible{outline:none;box-shadow:var(--ring)}
+.bde-handle.bde-text{border-radius:6px}
+.bde-handle.bde-text:hover{border-color:rgba(21,101,216,.45);background:rgba(21,101,216,.06)}
+.bde-handle.bde-text.is-sel{background:rgba(21,101,216,.08)}
+#bde-reset-text{margin-bottom:.6rem}
 .bde-grip{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;
   background:var(--primary);border:2px solid #fff;cursor:nwse-resize;display:none}
 .bde-handle.is-sel .bde-grip{display:block}
