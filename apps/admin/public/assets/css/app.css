@@ -60,6 +60,15 @@
   --maxw:1120px;
 }
 
+/* Salto al contenido: primer tabulador de la página, visible solo al enfocarlo.
+   Sin esto hay que atravesar toda la navegación en cada carga. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;
+  background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+  border-radius:0 0 var(--radius-sm) 0;padding:.6rem 1rem;font-weight:600;text-decoration:none}
+.skip-link:focus{left:0;box-shadow:var(--ring)}
+
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
@@ -230,9 +239,14 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .cards .card,.card.stat{padding:1.25rem 1.35rem;display:flex;flex-direction:column;gap:.15rem}
 .card-value{font-size:2rem;font-weight:700;letter-spacing:-.03em;line-height:1.1}
 .card-label{color:var(--muted);font-size:.86rem;font-weight:500}
-.card-delta{font-size:.8rem;font-weight:600;margin-top:.2rem}
+.card-delta{font-size:.8rem;font-weight:600;margin-top:.2rem;color:var(--muted)}
 .card-delta.positive{color:var(--success)}
 .card-delta.negative{color:var(--error)}
+/* Tarjeta que además es enlace (p. ej. "Pendientes de aceptación"). */
+a.card{color:inherit;text-decoration:none;transition:border-color .12s,box-shadow .12s}
+a.card:hover{border-color:var(--primary);box-shadow:var(--shadow-md);text-decoration:none}
+a.card:hover .card-delta{color:var(--primary)}
+a.card:focus-visible{outline:none;box-shadow:var(--ring)}
 
 /* ============================================================
    Tablas
@@ -245,6 +259,31 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .table tbody tr:last-child td{border-bottom:none}
 .table tbody tr:hover{background:var(--surface-2)}
 .table img{display:block}
+/* Tablas anchas: scrollean dentro de su propia caja en vez de arrastrar la
+   página entera en horizontal (y con ella el header) en pantallas chicas. */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* Gráfico de barras por mes. Las columnas tienen ancho máximo: con pocos meses
+   con datos, un flex:1 sin tope las estiraba hasta tapar el título. */
+.chart-months{display:flex;align-items:flex-end;gap:.5rem;height:200px;padding:.5rem 0 0;
+  border-bottom:1px solid var(--border)}
+.chart-col{flex:1 1 0;max-width:64px;height:100%;display:flex;flex-direction:column;
+  align-items:center;gap:.25rem}
+.chart-value{font-size:.72rem;color:var(--muted);line-height:1}
+.chart-track{flex:1;width:100%;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:.2rem}
+.chart-bar{width:100%;background:var(--primary);border-radius:4px 4px 0 0}
+.chart-label{font-size:.68rem;color:var(--muted);white-space:nowrap}
+
+/* Revisión previa a la emisión masiva */
+.review-summary{display:flex;flex-wrap:wrap;gap:.75rem;margin:1rem 0}
+.review-stat{flex:1 1 170px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-md);padding:.9rem 1rem}
+.review-stat strong{display:block;font-size:1.9rem;line-height:1.1;color:var(--text)}
+.review-stat span{font-size:.82rem;color:var(--muted)}
+.review-stat-go{border-color:var(--primary);background:var(--primary-soft)}
+.review-stat-go strong{color:var(--primary)}
+.review-stat-bad strong{color:var(--error)}
+.review-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-top:1.5rem}
 
 /* ============================================================
    Pills de estado / tags
@@ -269,6 +308,8 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .alert-success::before{content:"✓"}
 .alert-error{background:var(--error-soft);border-color:#f1c4c4;color:#9c1d1d}
 .alert-error::before{content:"!"}
+.alert-warn{background:var(--warn-soft);border-color:#eccfa4;color:#7d4406}
+.alert-warn::before{content:"!"}
 
 /* ============================================================
    Grilla de badges (wallet) + verificación pública
@@ -310,7 +351,9 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .public-header .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:.65rem;padding:.85rem 1.5rem}
 .public-header .brand{display:flex;align-items:center;gap:.55rem;font-weight:700;color:var(--text);font-size:1.08rem;letter-spacing:-.02em}
 .public-header nav{margin-left:auto;display:flex;align-items:center;gap:1.1rem;font-size:.9rem}
-.public-header nav a{color:var(--text-2);font-weight:500}
+/* :not(.btn) — si no, este selector le gana en especificidad a .btn-primary
+   y le pisa el color al CTA, dejando texto gris sobre fondo azul (1.8:1). */
+.public-header nav a:not(.btn){color:var(--text-2);font-weight:500}
 
 .container{max-width:var(--maxw);margin:0 auto;padding:2rem 1.5rem}
 .site-footer{text-align:center;color:var(--muted);font-size:.82rem;padding:2.5rem 1rem 2rem}
@@ -427,6 +470,10 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
   .sidebar-nav a{white-space:nowrap}
   .content{padding:1.25rem}
   .topbar{padding:.75rem 1.25rem}
+  /* En pantallas chicas la tabla scrollea dentro de sí misma. Sin esto, las
+     últimas columnas (entre ellas Estado) quedaban fuera del viewport y el
+     scroll horizontal lo hacía la página entera, arrastrando el header. */
+  .table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
 }
 /* --- "Acerca de" (modal :target, sin JS) --- */
 .about-btn{display:inline-flex;align-items:center;gap:.3rem;background:none;border:0;color:inherit;opacity:.75;text-decoration:none;font-size:.8rem;cursor:pointer}

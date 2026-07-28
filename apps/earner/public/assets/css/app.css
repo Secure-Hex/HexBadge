@@ -60,6 +60,15 @@
   --maxw:1120px;
 }
 
+/* Salto al contenido: primer tabulador de la página, visible solo al enfocarlo.
+   Sin esto hay que atravesar toda la navegación en cada carga. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;
+  background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+  border-radius:0 0 var(--radius-sm) 0;padding:.6rem 1rem;font-weight:600;text-decoration:none}
+.skip-link:focus{left:0;box-shadow:var(--ring)}
+
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
@@ -90,52 +99,6 @@ section>h2{padding-bottom:.4rem;border-bottom:1px solid var(--border);margin-bot
 .brand-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--primary)}
 .brand-mark svg{width:100%;height:100%}
 
-/* ============================================================
-   Shell de aplicación (panel admin con sidebar)
-   ============================================================ */
-.app-shell{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
-
-.sidebar{
-  background:linear-gradient(180deg,var(--nav-bg),var(--nav-bg-2));
-  border-right:1px solid var(--nav-border);
-  color:var(--nav-text);
-  display:flex;flex-direction:column;
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-}
-.sidebar-brand{
-  display:flex;align-items:center;gap:.6rem;
-  padding:1.15rem 1.25rem;margin-bottom:.25rem;
-  color:var(--nav-text-strong);font-weight:700;font-size:1.12rem;letter-spacing:-.02em;
-}
-.sidebar-brand .brand-mark{color:#7aa2ff}
-.sidebar-brand small{display:block;font-size:.62rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
-.sidebar-nav{display:flex;flex-direction:column;gap:1px;padding:.25rem .6rem;flex:1}
-.sidebar-nav .nav-section{font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5d6c85;padding:1rem .65rem .35rem}
-.sidebar-nav a{
-  display:flex;align-items:center;gap:.6rem;
-  padding:.5rem .65rem;border-radius:var(--radius-sm);
-  color:var(--nav-text);font-size:.92rem;font-weight:500;
-}
-.sidebar-nav a:hover{background:rgba(255,255,255,.05);color:var(--nav-text-strong);text-decoration:none}
-.sidebar-nav a.active{background:var(--nav-active);color:#fff}
-.sidebar-nav a .ico{width:18px;height:18px;flex:none;opacity:.85}
-.sidebar-foot{padding:.85rem 1rem;border-top:1px solid var(--nav-border);font-size:.78rem;color:var(--muted-2)}
-.sidebar-foot a{color:#9fb3d6;font-weight:600}
-.sidebar-foot a:hover{color:#fff}
-
-.app-main{display:flex;flex-direction:column;min-width:0}
-.topbar{
-  position:sticky;top:0;z-index:20;
-  display:flex;align-items:center;gap:1rem;
-  background:rgba(255,255,255,.85);backdrop-filter:saturate(160%) blur(8px);
-  border-bottom:1px solid var(--border);
-  padding:.85rem 1.75rem;
-}
-.topbar h1{font-size:1.12rem;margin:0;font-weight:650}
-.topbar .spacer{flex:1}
-.topbar-user{display:flex;align-items:center;gap:.75rem;font-size:.9rem;color:var(--text-2)}
-.topbar-user .avatar{width:32px;height:32px;border-radius:var(--radius-pill);background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:.85rem}
-.content{padding:1.75rem;max-width:var(--maxw);width:100%;margin:0 auto}
 
 /* ============================================================
    Tarjeta de autenticación (login / install / accept)
@@ -281,7 +244,9 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .public-header .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:.65rem;padding:.85rem 1.5rem}
 .public-header .brand{display:flex;align-items:center;gap:.55rem;font-weight:700;color:var(--text);font-size:1.08rem;letter-spacing:-.02em}
 .public-header nav{margin-left:auto;display:flex;align-items:center;gap:1.1rem;font-size:.9rem}
-.public-header nav a{color:var(--text-2);font-weight:500}
+/* :not(.btn) — si no, este selector le gana en especificidad a .btn-primary
+   y le pisa el color al CTA, dejando texto gris sobre fondo azul (1.8:1). */
+.public-header nav a:not(.btn){color:var(--text-2);font-weight:500}
 
 .container{max-width:var(--maxw);margin:0 auto;padding:2rem 1.5rem}
 .site-footer{text-align:center;color:var(--muted);font-size:.82rem;padding:2.5rem 1rem 2rem}
@@ -385,20 +350,6 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
   .hero *,.hero-hex,.hero-badge{animation:none!important}
 }
 
-/* ============================================================
-   Responsive
-   ============================================================ */
-@media (max-width:860px){
-  .app-shell{grid-template-columns:1fr}
-  .sidebar{position:static;height:auto;flex-direction:row;align-items:center;overflow-x:auto;border-right:none;border-bottom:1px solid var(--nav-border)}
-  .sidebar-brand{padding:.8rem 1rem;margin:0}
-  .sidebar-brand small{display:none}
-  .sidebar-nav{flex-direction:row;padding:.4rem .6rem;gap:.15rem}
-  .sidebar-nav .nav-section,.sidebar-foot{display:none}
-  .sidebar-nav a{white-space:nowrap}
-  .content{padding:1.25rem}
-  .topbar{padding:.75rem 1.25rem}
-}
 
 /* ---- Perfil público del receptor ---- */
 .profile-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.75rem;box-shadow:0 1px 2px rgba(16,27,46,.06),0 8px 24px rgba(16,27,46,.05)}
@@ -543,6 +494,32 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 
 /* ---- Página de verificación pública ---- */
 .verify-shell{max-width:920px;margin:0 auto;padding:2rem 1.25rem 3rem}
+
+/* Veredicto. Quien abre esta página vino a preguntar una sola cosa; la
+   respuesta va primera, grande, y sin depender solo del color. */
+.verdict{display:flex;align-items:flex-start;gap:.9rem;margin:0 0 1.5rem;
+  padding:1.15rem 1.35rem;border:1px solid;border-radius:var(--radius)}
+.verdict svg{flex:none;width:30px;height:30px;fill:currentColor;margin-top:.1rem}
+.verdict strong{display:block;font-size:1.5rem;line-height:1.15;letter-spacing:-.02em}
+.verdict p{margin:.25rem 0 0;font-size:.92rem;line-height:1.5;color:inherit;opacity:.92}
+.verdict-valid{background:var(--success-soft);border-color:#a9dcbb;color:#12693a}
+.verdict-revoked{background:var(--error-soft);border-color:#f1c4c4;color:#8f1c1c}
+.verdict-expired{background:var(--warn-soft);border-color:#eccfa4;color:#7d4406}
+
+/* Persona que la obtuvo: contexto, no protagonista. */
+.owner-card{display:flex;align-items:center;gap:1rem;margin-top:1.5rem;padding:1.1rem 1.35rem;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.owner-avatar{flex:none;width:56px;height:56px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:1.3rem}
+.owner-avatar img{width:100%;height:100%;object-fit:cover}
+.owner-id{min-width:0}
+.owner-id h2{margin:0;font-size:1.05rem;letter-spacing:-.01em}
+.owner-bio{margin:.15rem 0 0;font-size:.85rem;color:var(--muted);line-height:1.45}
+.owner-links{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin:.4rem 0 0;font-size:.85rem}
+.owner-social{display:inline-flex;color:var(--muted)}
+.owner-social svg{width:17px;height:17px;fill:currentColor}
+.owner-social:hover{color:var(--brand,var(--primary))}
 .badge-verify{display:grid;grid-template-columns:280px 1fr;overflow:hidden;padding:0}
 .badge-verify-media{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem 1.5rem;background:var(--surface-2);border-right:1px solid var(--border)}
 .badge-verify-media img{width:200px;height:200px;object-fit:contain}
@@ -551,7 +528,7 @@ form small{display:block;color:var(--muted);font-size:.8rem;margin-top:.3rem}
 .bv-logo img{max-height:80px;max-width:100%;width:auto;height:auto;object-fit:contain}
 .badge-verify-body{padding:1.75rem 1.85rem}
 .bv-eyebrow{text-transform:uppercase;letter-spacing:.07em;font-size:.72rem;font-weight:700;color:var(--primary);margin:0 0 .15rem}
-.badge-verify-body h2{font-size:1.4rem;margin:0 0 .25rem;letter-spacing:-.015em}
+.badge-verify-body h1{font-size:1.6rem;margin:0 0 .25rem;letter-spacing:-.02em}
 .bv-grantee{color:var(--text-2);margin:0 0 1rem}
 .bv-desc{color:var(--text-2);line-height:1.6;margin:.5rem 0}
 .bv-block{margin:1.25rem 0;padding-top:1.1rem;border-top:1px solid var(--border)}
