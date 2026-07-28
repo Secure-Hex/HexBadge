@@ -72,6 +72,15 @@ $uuid = (string) $template['uuid'];
                 </span>
             </div>
 
+            <label for="f-metal">Metal</label>
+            <select id="f-metal" data-k="metal">
+                <option value="none">Sin metal (color propio)</option>
+                <option value="gold">Oro</option>
+                <option value="silver">Plata</option>
+                <option value="bronze">Bronce</option>
+                <option value="steel">Acero</option>
+            </select>
+
             <label for="f-ornament">Ornamento</label>
             <select id="f-ornament" data-k="ornament">
                 <?php foreach (S::ORNAMENTS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
@@ -90,6 +99,30 @@ $uuid = (string) $template['uuid'];
             </div>
         </details>
 
+        <details class="bde-group">
+            <summary>Degradado y trama</summary>
+            <label for="f-grad">Tipo de degradado</label>
+            <select id="f-grad" data-k="grad">
+                <?php foreach (S::GRADIENTS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
+            </select>
+
+            <label for="f-gradX">Centro horizontal <output id="o-gradX"></output></label>
+            <input type="range" id="f-gradX" min="0" max="100" step="1" data-k="gradX">
+            <label for="f-gradY">Centro vertical <output id="o-gradY"></output></label>
+            <input type="range" id="f-gradY" min="0" max="100" step="1" data-k="gradY">
+            <label for="f-gradSpread">Extensión <output id="o-gradSpread"></output></label>
+            <input type="range" id="f-gradSpread" min="30" max="140" step="1" data-k="gradSpread">
+            <label for="f-gradAngle">Ángulo (lineal) <output id="o-gradAngle"></output></label>
+            <input type="range" id="f-gradAngle" min="0" max="360" step="5" data-k="gradAngle">
+
+            <label for="f-pattern">Trama de fondo</label>
+            <select id="f-pattern" data-k="pattern">
+                <?php foreach (S::PATTERNS as $k => $v): ?><option value="<?= e($k) ?>"><?= e($v) ?></option><?php endforeach; ?>
+            </select>
+            <label for="f-patternOp">Intensidad de la trama <output id="o-patternOp"></output></label>
+            <input type="range" id="f-patternOp" min="2" max="40" step="1" data-k="patternOp">
+        </details>
+
         <details class="bde-group" open>
             <summary>Textos</summary>
             <label for="f-mark">Iniciales <span class="muted">(hasta 3)</span></label>
@@ -101,6 +134,10 @@ $uuid = (string) $template['uuid'];
             <label for="f-level">Nivel</label>
             <input type="text" id="f-level" maxlength="24" data-k="level">
             <label class="bd-check"><input type="checkbox" id="f-ribbon" data-k="ribbon"> Mostrar el nivel en una cinta</label>
+            <label class="bd-check"><input type="checkbox" id="f-textShadow" data-k="textShadow"> Sombra en los textos</label>
+
+            <label for="f-stars">Estrellas de nivel <output id="o-stars"></output></label>
+            <input type="range" id="f-stars" min="0" max="5" step="1" data-k="stars">
 
             <label for="f-arcTop">Texto curvo arriba</label>
             <input type="text" id="f-arcTop" maxlength="34" data-k="arcTop">

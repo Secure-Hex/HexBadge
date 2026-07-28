@@ -38,10 +38,44 @@ final class BadgeSvgService
 
     /** @var array<string,string> */
     public const FINISHES = [
-        'gloss'    => 'Brillante',
-        'metal'    => 'Metálico',
-        'gradient' => 'Degradado',
-        'flat'     => 'Plano',
+        'satin'  => 'Satinado',
+        'gloss'  => 'Brillante',
+        'metal'  => 'Metal pulido',
+        'matte'  => 'Mate',
+        'flat'   => 'Plano',
+    ];
+
+    /**
+     * Paletas metálicas.
+     *
+     * El oro no es amarillo con un degradado: son ocres, blancos cálidos y
+     * sombras marrones alternados, que es lo que el ojo lee como metal.
+     *
+     * @var array<string,array{0:string,1:string,2:string,3:string}>
+     */
+    public const METALS = [
+        'none'   => ['', '', '', ''],
+        'gold'   => ['#f7e7a8', '#c9a227', '#8a6a12', '#fff6d6'],
+        'silver' => ['#f2f5f8', '#aeb7c2', '#6b7480', '#ffffff'],
+        'bronze' => ['#eec9a3', '#a9713c', '#6b4220', '#ffe9cf'],
+        'steel'  => ['#dbe4ee', '#7d8b9e', '#414c5b', '#f4f8fc'],
+    ];
+
+    /** Cómo se orienta el degradado del cuerpo. */
+    public const GRADIENTS = [
+        'radial' => 'Radial',
+        'linear' => 'Lineal',
+        'conic'  => 'Barrido',
+    ];
+
+    /** Tramas de fondo. */
+    public const PATTERNS = [
+        'none'    => 'Ninguna',
+        'guilloche' => 'Guilloché',
+        'hex'     => 'Panal',
+        'dots'    => 'Puntos',
+        'diagonal'=> 'Diagonales',
+        'sunburst'=> 'Sol naciente',
     ];
 
     /** @var array<string,string> */
@@ -113,7 +147,17 @@ final class BadgeSvgService
             'fill2'    => $hex($in['fill2'] ?? '', '#0b3b8c'),
             'accent'   => $hex($in['accent'] ?? '', '#0f1b2e'),
             'ink'      => $hex($in['ink'] ?? '', '#ffffff'),
-            'finish'   => $pick($in['finish'] ?? '', self::FINISHES, 'gloss'),
+            'finish'   => $pick($in['finish'] ?? '', self::FINISHES, 'satin'),
+            'metal'    => $pick($in['metal'] ?? '', self::METALS, 'none'),
+            'grad'     => $pick($in['grad'] ?? '', self::GRADIENTS, 'radial'),
+            'gradX'    => $num($in['gradX'] ?? null, 0, 100, 50),
+            'gradY'    => $num($in['gradY'] ?? null, 0, 100, 32),
+            'gradAngle'=> $num($in['gradAngle'] ?? null, 0, 360, 160),
+            'gradSpread' => $num($in['gradSpread'] ?? null, 30, 140, 78),
+            'pattern'  => $pick($in['pattern'] ?? '', self::PATTERNS, 'none'),
+            'patternOp'=> $num($in['patternOp'] ?? null, 2, 40, 12),
+            'stars'    => (int) $num($in['stars'] ?? null, 0, 5, 0),
+            'textShadow' => !empty($in['textShadow']),
             'ring'     => $pick($in['ring'] ?? '', self::RINGS, 'double'),
             'ornament' => $pick($in['ornament'] ?? '', self::ORNAMENTS, 'laurel'),
             'font'     => $pick($in['font'] ?? '', self::FONTS, 'sans'),
@@ -287,7 +331,15 @@ final class BadgeSvgService
         // Cuerpo y borde.
         $body .= $this->shapeElement($r, $c, $vb * 0.455, 'url(#bg' . $this->uid . ')', 'filter="url(#drop' . $this->uid . ')"');
         $body .= $this->ringElement($r, $c, $vb * 0.455);
-        if ($r['finish'] === 'gloss') {
+        if ($r['pattern'] !== 'none') {
+            $fill = $r['pattern'] === 'sunburst'
+                ? '<use href="#pat' . $this->uid . '"/>'
+                : '<rect x="0" y="0" width="' . $vb . '" height="' . $vb . '" fill="url(#pat' . $this->uid . ')"/>';
+            $body .= '<g clip-path="url(#clipShape' . $this->uid . ')" opacity="' . round($r['patternOp'] / 100, 2) . '">'
+                . $fill . '</g>';
+        }
+
+        if ($r['finish'] === 'gloss' || $r['finish'] === 'satin') {
             // Reflejo superior: una elipse recortada a la forma, muy tenue.
             $body .= '<ellipse cx="' . $c . '" cy="' . round($vb * 0.30, 1) . '" rx="' . round($vb * 0.34, 1)
                 . '" ry="' . round($vb * 0.20, 1) . '" fill="url(#gloss' . $this->uid . ')" clip-path="url(#clipShape' . $this->uid . ')"/>';
@@ -306,6 +358,9 @@ final class BadgeSvgService
         $body .= $this->imageLayers($r, $vb);
         $layout = [];
         $body .= $this->centerText($r, $c, $vb, ($logoDataUri !== null && $r['logo']) || $r['images'] !== [], $layout);
+        if ($r['stars'] > 0) {
+            $body .= $this->levelStars($r, $c, $vb);
+        }
         if ($r['ribbon'] && $r['level'] !== '') {
             $body .= $this->ribbon($r, $c, $vb);
         }
@@ -318,38 +373,120 @@ final class BadgeSvgService
             . '</svg>';
     }
 
-    /** Degradados, sombra y recorte reutilizables. */
+    /** Degradados, tramas, sombra y recorte. */
     private function defs(array $r): string
     {
-        $fill  = $r['fill'];
-        $fill2 = $r['finish'] === 'flat' ? $r['fill'] : $r['fill2'];
+        $u  = $this->uid;
+        $vb = self::VIEWBOX;
 
-        $bg = match ($r['finish']) {
-            // Metálico: bandas claras y oscuras alternadas, como una chapa.
-            'metal' => '<linearGradient id="bg' . $this->uid . '" x1="0" y1="0" x2="1" y2="1">'
-                . '<stop offset="0%" stop-color="' . self::shade($fill, 0.35) . '"/>'
-                . '<stop offset="35%" stop-color="' . $fill . '"/>'
-                . '<stop offset="55%" stop-color="' . self::shade($fill, -0.28) . '"/>'
-                . '<stop offset="78%" stop-color="' . $fill . '"/>'
-                . '<stop offset="100%" stop-color="' . self::shade($fill, -0.35) . '"/></linearGradient>',
-            'flat'  => '<linearGradient id="bg' . $this->uid . '"><stop offset="0%" stop-color="' . $fill . '"/></linearGradient>',
-            default => '<radialGradient id="bg' . $this->uid . '" cx="50%" cy="32%" r="78%">'
-                . '<stop offset="0%" stop-color="' . self::shade($fill, 0.28) . '"/>'
-                . '<stop offset="62%" stop-color="' . $fill . '"/>'
-                . '<stop offset="100%" stop-color="' . $fill2 . '"/></radialGradient>',
+        // Paradas del cuerpo. Un metal no es un color con degradado: son claros,
+        // medios y sombras alternados, que es lo que el ojo lee como reflejo.
+        if ($r['metal'] !== 'none') {
+            [$lite, $mid, $dark, $hot] = self::METALS[$r['metal']];
+            $stops = [[0, $hot], [12, $lite], [30, $mid], [46, $dark], [58, $mid],
+                      [72, $lite], [84, $mid], [100, $dark]];
+        } elseif ($r['finish'] === 'flat') {
+            $stops = [[0, $r['fill']], [100, $r['fill']]];
+        } elseif ($r['finish'] === 'metal') {
+            $f = $r['fill'];
+            $stops = [[0, self::shade($f, 0.45)], [18, $f], [34, self::shade($f, -0.30)],
+                      [50, self::shade($f, 0.22)], [66, self::shade($f, -0.34)],
+                      [84, $f], [100, self::shade($f, -0.42)]];
+        } elseif ($r['finish'] === 'matte') {
+            $stops = [[0, self::shade($r['fill'], 0.06)], [100, self::shade($r['fill'], -0.10)]];
+        } else {
+            $stops = [[0, self::shade($r['fill'], 0.28)], [55, $r['fill']], [100, $r['fill2']]];
+        }
+
+        $body = '';
+        foreach ($stops as [$off, $col]) {
+            $body .= '<stop offset="' . $off . '%" stop-color="' . $col . '"/>';
+        }
+
+        // El degradado se puede orientar y desplazar: el punto de luz manda en
+        // cómo se lee el volumen de la pieza.
+        if ($r['grad'] === 'linear') {
+            $a  = deg2rad($r['gradAngle']);
+            $bg = '<linearGradient id="bg' . $u . '" x1="' . round(0.5 - cos($a) / 2, 3) . '" y1="' . round(0.5 - sin($a) / 2, 3)
+                . '" x2="' . round(0.5 + cos($a) / 2, 3) . '" y2="' . round(0.5 + sin($a) / 2, 3) . '">' . $body . '</linearGradient>';
+        } elseif ($r['grad'] === 'conic') {
+            // SVG no tiene degradado cónico: se arma con cuñas, que además da un
+            // reflejo de barrido más creíble que un degradado suave.
+            $bg = '<radialGradient id="bg' . $u . '" cx="' . $r['gradX'] . '%" cy="' . $r['gradY']
+                . '%" r="' . $r['gradSpread'] . '%">' . $body . '</radialGradient>';
+        } else {
+            $bg = '<radialGradient id="bg' . $u . '" cx="' . $r['gradX'] . '%" cy="' . $r['gradY']
+                . '%" r="' . $r['gradSpread'] . '%">' . $body . '</radialGradient>';
+        }
+
+        $defs = $bg
+            . '<linearGradient id="gloss' . $u . '" x1="0" y1="0" x2="0" y2="1">'
+            . '<stop offset="0%" stop-color="#ffffff" stop-opacity=".38"/>'
+            . '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>';
+
+        // El aro sigue al metal cuando hay uno elegido.
+        if ($r['metal'] !== 'none') {
+            [$lite, $mid, $dark, $hot] = self::METALS[$r['metal']];
+            $defs .= '<linearGradient id="ringGrad' . $u . '" x1="0" y1="0" x2="0.7" y2="1">'
+                . '<stop offset="0%" stop-color="' . $hot . '"/><stop offset="22%" stop-color="' . $mid . '"/>'
+                . '<stop offset="45%" stop-color="' . $dark . '"/><stop offset="62%" stop-color="' . $lite . '"/>'
+                . '<stop offset="100%" stop-color="' . $mid . '"/></linearGradient>';
+        } else {
+            $defs .= '<linearGradient id="ringGrad' . $u . '" x1="0" y1="0" x2="0" y2="1">'
+                . '<stop offset="0%" stop-color="' . self::shade($r['accent'], 0.45) . '"/>'
+                . '<stop offset="50%" stop-color="' . $r['accent'] . '"/>'
+                . '<stop offset="100%" stop-color="' . self::shade($r['accent'], -0.3) . '"/></linearGradient>';
+        }
+
+        $defs .= '<filter id="drop' . $u . '" x="-25%" y="-25%" width="150%" height="150%">'
+            . '<feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0f1b2e" flood-opacity=".34"/></filter>'
+            . '<filter id="tsh' . $u . '" x="-20%" y="-20%" width="140%" height="140%">'
+            . '<feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#000000" flood-opacity=".45"/></filter>'
+            . '<clipPath id="clipShape' . $u . '"><path d="' . $this->shapePath($r['shape'], $vb / 2, $vb * 0.455) . '"/></clipPath>'
+            . $this->patternDef($r);
+
+        return $defs;
+    }
+
+    /** Trama de fondo, recortada a la figura. */
+    private function patternDef(array $r): string
+    {
+        if ($r['pattern'] === 'none') {
+            return '';
+        }
+        $u  = $this->uid;
+        $ink = $r['ink'];
+
+        $tile = match ($r['pattern']) {
+            'hex' => '<path d="M10 0 L20 5.8 L20 17.3 L10 23 L0 17.3 L0 5.8 Z" fill="none" stroke="' . $ink . '" stroke-width="1"/>',
+            'dots' => '<circle cx="6" cy="6" r="1.6" fill="' . $ink . '"/>',
+            'diagonal' => '<path d="M-2 10 L10 -2 M0 12 L12 0 M2 14 L14 2" stroke="' . $ink . '" stroke-width="1.4"/>',
+            // Guilloché: el entramado de curvas de los billetes y los diplomas.
+            'guilloche' => '<path d="M0 20 Q10 0 20 20 T40 20" fill="none" stroke="' . $ink . '" stroke-width="1"/>'
+                . '<path d="M0 20 Q10 40 20 20 T40 20" fill="none" stroke="' . $ink . '" stroke-width="1"/>',
+            default => '',
         };
 
-        return $bg
-            . '<linearGradient id="gloss' . $this->uid . '" x1="0" y1="0" x2="0" y2="1">'
-            . '<stop offset="0%" stop-color="#ffffff" stop-opacity=".34"/>'
-            . '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>'
-            . '<linearGradient id="ringGrad' . $this->uid . '" x1="0" y1="0" x2="0" y2="1">'
-            . '<stop offset="0%" stop-color="' . self::shade($r['accent'], 0.45) . '"/>'
-            . '<stop offset="50%" stop-color="' . $r['accent'] . '"/>'
-            . '<stop offset="100%" stop-color="' . self::shade($r['accent'], -0.3) . '"/></linearGradient>'
-            . '<filter id="drop' . $this->uid . '" x="-25%" y="-25%" width="150%" height="150%">'
-            . '<feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0f1b2e" flood-opacity=".34"/></filter>'
-            . '<clipPath id="clipShape' . $this->uid . '"><path d="' . $this->shapePath($r['shape'], self::VIEWBOX / 2, self::VIEWBOX * 0.455) . '"/></clipPath>';
+        if ($r['pattern'] === 'sunburst') {
+            // Rayos desde el centro: no es una baldosa, se dibuja entero.
+            $c = self::VIEWBOX / 2;
+            $g = '<g id="pat' . $u . '">';
+            for ($i = 0; $i < 48; $i++) {
+                $a1 = deg2rad($i * 7.5);
+                $a2 = deg2rad($i * 7.5 + 3.75);
+                $g .= '<path d="M' . $c . ' ' . $c
+                    . ' L' . round($c + $c * 1.5 * cos($a1), 1) . ' ' . round($c + $c * 1.5 * sin($a1), 1)
+                    . ' L' . round($c + $c * 1.5 * cos($a2), 1) . ' ' . round($c + $c * 1.5 * sin($a2), 1)
+                    . ' Z" fill="' . $ink . '"/>';
+            }
+            return $g . '</g>';
+        }
+
+        $size = $r['pattern'] === 'guilloche' ? 40 : ($r['pattern'] === 'hex' ? 20 : 12);
+        $h    = $r['pattern'] === 'hex' ? 23 : $size;
+
+        return '<pattern id="pat' . $u . '" width="' . $size . '" height="' . $h
+            . '" patternUnits="userSpaceOnUse">' . $tile . '</pattern>';
     }
 
     /** Camino de la forma elegida, centrado en ($c,$c) con radio $r. */
@@ -511,6 +648,8 @@ final class BadgeSvgService
     private function centerText(array $r, float $c, float $vb, bool $hasLogo, array &$layout = []): string
     {
         $font  = self::FONTS[$r['font']][0];
+        // Una sombra corta despega el texto de un fondo con trama o degradado.
+        $sh    = $r['textShadow'] ? ' filter="url(#tsh' . $this->uid . ')"' : '';
         $out   = '';
         $mark  = $r['mark']['type'] === 'initials' ? $r['mark']['value'] : '';
         $level = $r['ribbon'] ? '' : $r['level'];
@@ -536,7 +675,7 @@ final class BadgeSvgService
             if ($kind === 'mark') {
                 $size = $vb * 0.155;
                 $ty   = $cy ?? $y;
-                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle" '
+                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle"' . $sh . ' '
                     . 'style="font-family:' . $font . ';font-weight:800;font-size:' . round($size, 1)
                     . 'px;fill:' . $r['ink'] . ';letter-spacing:' . round($r['tracking'], 1) . 'px">'
                     . e($text) . '</text>';
@@ -547,7 +686,7 @@ final class BadgeSvgService
                 $size  = $vb * 0.072 * $r['titleSize'] * (count($lines) > 2 ? 0.86 : 1);
                 $ty    = $cy ?? $y;
                 foreach ($lines as $i => $line) {
-                    $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty + $i * $size * 1.16, 1) . '" text-anchor="middle" '
+                    $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty + $i * $size * 1.16, 1) . '" text-anchor="middle"' . $sh . ' '
                         . 'style="font-family:' . $font . ';font-weight:700;font-size:' . round($size, 1)
                         . 'px;fill:' . $r['ink'] . ';letter-spacing:' . round($r['tracking'] * 0.5, 1) . 'px">'
                         . e($line) . '</text>';
@@ -557,7 +696,7 @@ final class BadgeSvgService
             } else {
                 $size = $vb * 0.052;
                 $ty   = ($cy ?? $y) + ($cy === null ? $size * 0.6 : 0);
-                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle" '
+                $out .= '<text x="' . round($cx, 1) . '" y="' . round($ty, 1) . '" text-anchor="middle"' . $sh . ' '
                     . 'style="font-family:' . $font . ';font-weight:500;font-size:' . round($size, 1)
                     . 'px;fill:' . $r['ink'] . ';opacity:.92;letter-spacing:' . round(1 + $r['tracking'] * 0.5, 1) . 'px">'
                     . e($text) . '</text>';
@@ -566,6 +705,23 @@ final class BadgeSvgService
         }
 
         return $out;
+    }
+
+    /** Estrellas de nivel: una fila bajo el contenido, como grado alcanzado. */
+    private function levelStars(array $r, float $c, float $vb): string
+    {
+        $n    = $r['stars'];
+        $size = $vb * 0.030;
+        $gap  = $size * 2.6;
+        $y    = $r['ribbon'] ? $vb * 0.645 : $vb * 0.695;
+        $x0   = $c - ($n - 1) * $gap / 2;
+
+        $out = '<g fill="' . $r['ink'] . '" opacity=".92">';
+        for ($i = 0; $i < $n; $i++) {
+            $out .= '<path d="' . self::starPath($x0 + $i * $gap, $size, 5, 0.45, $y) . '"/>';
+        }
+
+        return $out . '</g>';
     }
 
     private function ribbon(array $r, float $c, float $vb): string
@@ -577,14 +733,19 @@ final class BadgeSvgService
         $n = $h * 0.42;
         $font = self::FONTS[$r['font']][0];
 
+        // La cinta tiene fondo propio: su texto se decide por ese fondo y no por
+        // la tinta general, o queda ilegible sobre un aro dorado o plateado.
+        $band = self::shade($r['accent'], -0.1);
+        $ink  = self::readable($band);
+
         return '<path d="M ' . round($x, 1) . ' ' . round($y, 1)
             . ' H ' . round($x + $w, 1) . ' L ' . round($x + $w - $n, 1) . ' ' . round($y + $h / 2, 1)
             . ' L ' . round($x + $w, 1) . ' ' . round($y + $h, 1)
             . ' H ' . round($x, 1) . ' L ' . round($x + $n, 1) . ' ' . round($y + $h / 2, 1) . ' Z" '
-            . 'fill="' . self::shade($r['accent'], -0.1) . '"/>'
+            . 'fill="' . $band . '"/>'
             . '<text x="' . $c . '" y="' . round($y + $h * 0.66, 1) . '" text-anchor="middle" '
             . 'style="font-family:' . $font . ';font-weight:700;font-size:' . round($vb * 0.048, 1)
-            . 'px;fill:' . $r['ink'] . ';letter-spacing:' . round(1 + $r['tracking'] * 0.5, 1) . 'px">'
+            . 'px;fill:' . $ink . ';letter-spacing:' . round(1 + $r['tracking'] * 0.5, 1) . 'px">'
             . e(mb_strtoupper($r['level'])) . '</text>';
     }
 
@@ -698,6 +859,20 @@ final class BadgeSvgService
             $lines[] = $line;
         }
         return $lines === [] ? [$text] : $lines;
+    }
+
+    /** Blanco o casi negro según qué se lea mejor sobre $hex. */
+    private static function readable(string $hex): string
+    {
+        $h = ltrim($hex, '#');
+        if (strlen($h) === 3) {
+            $h = $h[0] . $h[0] . $h[1] . $h[1] . $h[2] . $h[2];
+        }
+        $lum = (0.299 * hexdec(substr($h, 0, 2))
+              + 0.587 * hexdec(substr($h, 2, 2))
+              + 0.114 * hexdec(substr($h, 4, 2))) / 255;
+
+        return $lum > 0.6 ? '#101828' : '#ffffff';
     }
 
     private static function shade(string $hex, float $amount): string

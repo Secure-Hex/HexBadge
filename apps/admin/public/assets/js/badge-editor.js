@@ -53,6 +53,9 @@
         });
         output('titleSize', state.titleSize, 'x');
         output('tracking', state.tracking, 'px');
+        ['gradX', 'gradY', 'gradSpread', 'gradAngle', 'patternOp', 'stars'].forEach(function (k) {
+            output(k, state[k], k === 'gradAngle' ? '°' : (k === 'stars' ? '' : '%'));
+        });
     }
 
     function output(id, value, suffix) {
@@ -70,6 +73,9 @@
             if (k === 'mark.value') { state.mark.type = String(v).trim() === '' ? 'none' : 'initials'; }
             if (k === 'titleSize') { output('titleSize', v, 'x'); }
             if (k === 'tracking') { output('tracking', v, 'px'); }
+            if (['gradX','gradY','gradSpread','patternOp'].indexOf(k) >= 0) { output(k, v, '%'); }
+            if (k === 'gradAngle') { output(k, v, '°'); }
+            if (k === 'stars') { output(k, v, ''); }
             sync();
         });
     });
