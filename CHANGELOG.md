@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.3.0] - 2026-07-28
+### Nuevas funcionalidades
+- relieve, materia, placa de fondo y fusión de capas (cfacd70)
+- cinta movible, ornamento ajustable y más opciones de imagen (3965089)
+- acabados metálicos reales, degradado orientable y tramas (bc3696c)
+- textos arrastrables y arreglo del embebido de SVG (da0f15f)
+- editor de insignias en pantalla propia (88a10ae)
+- motor SVG con ornamentos, texto en arco y capas de imagen (66e3e3f)
+- diseñar la imagen de la acreditación dentro de la app (6ba037c)
+- optimizar imágenes desde el panel, sin consola (d12c514)
+### Correcciones
+- el saneador de SVG destruía los diseños al guardarlos (e312e72)
+- la cinta plegada dibujaba los dobleces hacia arriba (4bb3b99)
+- el logo del emisor se veía demasiado chico (0d2aa30)
+### Rendimiento
+- las imágenes se guardaban en su tamaño original (de8c497)
+### Refactor
+- un solo diseñador, en su pantalla (f5013fb)
+
 ## [1.2.0] - 2026-07-28
 ### Nuevas funcionalidades
 - la credencial se presenta como pieza catalogada (afbbcf9)
