@@ -24,6 +24,33 @@ $initial    = strtoupper(mb_substr($earnerName !== '' ? $earnerName : '?', 0, 1)
     $expired              => ['Expirado', 'status-pending'],
     default               => ['Válido', 'status-accepted'],
 };
+
+// Veredicto: la respuesta que vino a buscar quien abre esta página. Va primero
+// y en grande; todo lo demás es contexto.
+$issuer   = (string) $b['issuer_name'];
+$issuedOn = date_long((string) $b['issued_at']);
+[$verdictClass, $verdictTitle, $verdictDetail, $verdictIcon] = match (true) {
+    $status === 'revoked' => [
+        'verdict-revoked',
+        'Credencial revocada',
+        $issuer . ' revocó esta credencial'
+            . (!empty($b['revoke_reason']) ? ': ' . (string) $b['revoke_reason'] : '.')
+            . ' Ya no acredita el logro.',
+        'M12 2a10 10 0 100 20 10 10 0 000-20zm4.9 13.5L15.5 16.9 12 13.4l-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5 1.4-1.4 3.5 3.5 3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5z',
+    ],
+    $expired => [
+        'verdict-expired',
+        'Credencial expirada',
+        'Emitida por ' . $issuer . ' el ' . $issuedOn . '. Venció el ' . date_long((string) $b['expires_at']) . '.',
+        'M12 2a10 10 0 100 20 10 10 0 000-20zm1 5v5.6l4 2.4-.8 1.3-4.7-2.8V7z',
+    ],
+    default => [
+        'verdict-valid',
+        'Credencial válida',
+        'Emitida por ' . $issuer . ' el ' . $issuedOn . ', verificada contra el registro de HexBadge.',
+        'M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.3l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z',
+    ],
+};
 $ogDescription = $earnerName . ' obtuvo el badge "' . (string) $b['template_name'] . '" emitido por ' . (string) $b['issuer_name'] . '.';
 
 // Redes del receptor (solo las cargadas) + logo de LinkedIn para los botones.
@@ -39,7 +66,9 @@ foreach (social_networks() as $net) {
     }
 }
 
-// Botones de compartir (públicos: cualquiera que vea la credencial puede difundirla).
+// Botones de compartir: hoy solo para la persona dueña de la credencial
+// (ver $isOwner más abajo). Abrirlos a cualquier visitante ayudaría a la
+// difusión, pero es una decisión de privacidad sobre datos de un tercero.
 $encAll  = rawurlencode($ogDescription . ' ' . $verifyUrl);
 $encUrl  = rawurlencode($verifyUrl);
 $encText = rawurlencode($ogDescription);
@@ -92,37 +121,17 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
     .share-embed textarea{width:100%;min-height:70px;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.72rem;padding:.5rem;border:1px solid var(--border);border-radius:8px;resize:vertical}
     </style>
 </head>
-<body class="verify-page">
-<div class="verify-shell">
+<body class="verify-page"<?= ($status !== 'revoked' && !$expired) ? ' data-celebrate="1"' : '' ?>>
+<main class="verify-shell" id="main">
 
-    <!-- Perfil del receptor -->
-    <header class="profile-header">
-        <div class="profile-cover"<?php if (!empty($b['cover_filename'])): ?> style="background-image:url('<?= e(profile_image_url((string) $b['cover_filename'])) ?>')"<?php endif; ?>></div>
-        <div class="profile-id">
-            <div class="profile-avatar">
-                <?php if (!empty($b['avatar_filename'])): ?>
-                    <img src="<?= e(profile_image_url((string) $b['avatar_filename'])) ?>" alt="<?= e($earnerName) ?>">
-                <?php else: ?>
-                    <span><?= e($initial) ?></span>
-                <?php endif; ?>
-            </div>
-            <h1><?= e($earnerName) ?></h1>
-            <?php if (!empty($b['profile_bio'])): ?>
-                <p class="profile-bio"><?= nl2br(e((string) $b['profile_bio'])) ?></p>
-            <?php endif; ?>
-            <?php if ($networks !== []): ?>
-                <div class="social-links">
-                    <?php foreach ($networks as $n): ?>
-                        <a class="social-link" style="--brand:<?= e($n['brand']) ?>" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $n['icon'] ?>"/></svg>
-                            <span><?= e($n['label']) ?></span>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-            <p class="profile-count"><a href="/earner/<?= e((string) $b['earner_uuid']) ?>">Ver todos sus badges →</a></p>
+    <!-- Veredicto: primero, antes que cualquier otra cosa -->
+    <div class="verdict <?= $verdictClass ?>" role="status">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $verdictIcon ?>"/></svg>
+        <div>
+            <strong><?= $verdictTitle ?></strong>
+            <p><?= e($verdictDetail) ?></p>
         </div>
-    </header>
+    </div>
 
     <!-- Badge verificado -->
     <article class="badge-verify card">
@@ -136,14 +145,8 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
 
         <div class="badge-verify-body">
             <p class="bv-eyebrow">Credencial verificada</p>
-            <h2><?= e((string) $b['template_name']) ?></h2>
+            <h1><?= e((string) $b['template_name']) ?></h1>
             <p class="bv-grantee">Otorgado a <strong><?= e($earnerName) ?></strong></p>
-
-            <?php if ($status === 'revoked'): ?>
-                <div class="alert alert-error">Este badge fue revocado<?= !empty($b['revoke_reason']) ? ': ' . e((string) $b['revoke_reason']) : '.' ?></div>
-            <?php elseif ($expired): ?>
-                <div class="alert alert-error">Este badge expiró el <?= e((string) $b['expires_at']) ?>.</div>
-            <?php endif; ?>
 
             <?php if (!empty($b['template_description'])): ?>
                 <p class="bv-desc"><?= nl2br(e((string) $b['template_description'])) ?></p>
@@ -169,9 +172,9 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
             <?php endif; ?>
 
             <dl class="meta-list">
-                <dt>Emisor</dt><dd><?= e((string) $b['issuer_name']) ?></dd>
-                <dt>Fecha de emisión</dt><dd><?= e((string) $b['issued_at']) ?></dd>
-                <?php if (!empty($b['expires_at'])): ?><dt>Expira</dt><dd><?= e((string) $b['expires_at']) ?></dd><?php endif; ?>
+                <dt>Emisor</dt><dd><?= e($issuer) ?></dd>
+                <dt>Fecha de emisión</dt><dd><?= e($issuedOn) ?></dd>
+                <?php if (!empty($b['expires_at'])): ?><dt>Expira</dt><dd><?= e(date_long((string) $b['expires_at'])) ?></dd><?php endif; ?>
                 <dt>ID de verificación</dt><dd><code class="bv-id"><?= e((string) $b['uuid']) ?></code></dd>
             </dl>
 
@@ -205,7 +208,7 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
                     </div>
                     <details class="share-embed">
                         <summary>Insertar en una web (HTML)</summary>
-                        <textarea id="embed-code" readonly onclick="this.select()"><?= e($embedCode) ?></textarea>
+                        <textarea id="embed-code" readonly data-select><?= e($embedCode) ?></textarea>
                         <button type="button" class="share-btn" style="--brand:#1565d8" data-copy-el="#embed-code"><span>Copiar código</span></button>
                     </details>
                 </div>
@@ -214,43 +217,35 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
         </div>
     </article>
 
+    <!-- Quién la obtuvo: contexto, después de la credencial -->
+    <aside class="owner-card">
+        <div class="owner-avatar">
+            <?php if (!empty($b['avatar_filename'])): ?>
+                <img src="<?= e(profile_image_url((string) $b['avatar_filename'])) ?>" alt="">
+            <?php else: ?>
+                <span aria-hidden="true"><?= e($initial) ?></span>
+            <?php endif; ?>
+        </div>
+        <div class="owner-id">
+            <h2><?= e($earnerName) ?></h2>
+            <?php if (!empty($b['profile_bio'])): ?>
+                <p class="owner-bio"><?= e(mb_strimwidth(trim((string) $b['profile_bio']), 0, 160, '…')) ?></p>
+            <?php endif; ?>
+            <p class="owner-links">
+                <a href="/earner/<?= e((string) $b['earner_uuid']) ?>">Ver todos sus badges →</a>
+                <?php foreach ($networks as $n): ?>
+                    <a class="owner-social" href="<?= e($n['url']) ?>" target="_blank" rel="noopener nofollow" aria-label="<?= e($n['label']) ?>" style="--brand:<?= e($n['brand']) ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="<?= $n['icon'] ?>"/></svg>
+                    </a>
+                <?php endforeach; ?>
+            </p>
+        </div>
+    </aside>
+
     <p class="verify-foot">Verificado con <strong>HexBadge</strong>, una herramienta de
         <a href="https://securehex.cl" target="_blank" rel="noopener">SecureHex</a></p>
-</div>
-<script>
-// Copiar al portapapeles: data-copy="texto" o data-copy-el="#selector" (lee su .value).
-// navigator.clipboard solo existe en contexto seguro (HTTPS/localhost); si no,
-// caemos al método clásico con execCommand para que también funcione por HTTP.
-function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text);
-    }
-    return new Promise(function (resolve, reject) {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        var ok = false;
-        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-        document.body.removeChild(ta);
-        ok ? resolve() : reject();
-    });
-}
-document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-copy],[data-copy-el]');
-    if (!b) return;
-    var el = b.dataset.copyEl ? document.querySelector(b.dataset.copyEl) : null;
-    var text = b.dataset.copy || (el ? el.value : '');
-    if (!text) return;
-    copyText(text).then(function () {
-        var span = b.querySelector('span') || b, prev = span.textContent;
-        span.textContent = '¡Copiado!';
-        setTimeout(function () { span.textContent = prev; }, 1500);
-    }).catch(function () {});
-});
-</script>
+</main>
+<script src="<?= asset('js/copy.js') ?>" defer></script>
+<script src="<?= asset('js/verify.js') ?>" defer></script>
 </body>
 </html>
