@@ -22,6 +22,23 @@ final class ImageService
     private const CERT_DIR     = BASE_PATH . '/apps/earner/public/uploads/certificates/';
     private const LOGO_DIR     = BASE_PATH . '/apps/earner/public/uploads/logos/';
 
+    /**
+     * Lado máximo al que se guarda cada tipo de imagen, en píxeles.
+     *
+     * No es una preferencia estética: una insignia se muestra a 112px en la
+     * grilla del perfil y a 224px en la vitrina de la credencial, así que 512
+     * cubre pantallas de densidad doble y deja margen para el `og:image` y para
+     * la imagen que expone la afirmación de Open Badges. Guardarlas a 1254px,
+     * como venía pasando, hacía que un perfil con siete insignias descargara
+     * más de 5 MB.
+     *
+     * Las plantillas de diploma NO pasan por acá: se imprimen en un PDF y
+     * necesitan su resolución original.
+     */
+    private const MAX_EDGE_BADGE   = 512;
+    private const MAX_EDGE_PROFILE = 1280;  // las portadas ocupan el ancho de la tarjeta
+    private const MAX_EDGE_LOGO    = 600;
+
     private int $maxBytes;
 
     public function __construct()
@@ -41,7 +58,7 @@ final class ImageService
             'image/png'     => 'png',
             'image/jpeg'    => 'jpg',
             'image/svg+xml' => 'svg',
-        ], $this->maxBytes, true);
+        ], $this->maxBytes, true, self::MAX_EDGE_BADGE);
     }
 
     /**
@@ -55,7 +72,7 @@ final class ImageService
         return $this->persist($file, self::PROFILE_DIR, [
             'image/png'  => 'png',
             'image/jpeg' => 'jpg',
-        ], 5 * 1024 * 1024, false);
+        ], 5 * 1024 * 1024, false, self::MAX_EDGE_PROFILE);
     }
 
     /**
@@ -69,7 +86,7 @@ final class ImageService
             'image/png'     => 'png',
             'image/jpeg'    => 'jpg',
             'image/svg+xml' => 'svg',
-        ], $this->maxBytes, true);
+        ], $this->maxBytes, true, self::MAX_EDGE_LOGO);
     }
 
     public function delete(string $filename): void
@@ -104,7 +121,7 @@ final class ImageService
      * @param array<string,mixed>  $file
      * @param array<string,string> $extByMime  MIME permitido => extensión
      */
-    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg): string
+    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg, int $maxEdge = 0): string
     {
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             throw new InvalidArgumentException('Error al subir la imagen');
@@ -136,7 +153,7 @@ final class ImageService
         if ($sanitizeSvg && $mime === 'image/svg+xml') {
             $this->sanitizeSvg($dest);
         } elseif ($mime === 'image/png' || $mime === 'image/jpeg') {
-            $filename = $this->toWebp($dest, $mime) ?? $filename;
+            $filename = $this->toWebp($dest, $mime, $maxEdge) ?? $filename;
         }
 
         // 0644: imágenes públicas; en cPanel el contenido estático lo sirve otro user.
@@ -149,7 +166,7 @@ final class ImageService
      * nuevo nombre. Devuelve null si GD no soporta WebP o la imagen es inválida
      * (en ese caso el llamador conserva el archivo original).
      */
-    private function toWebp(string $srcPath, string $mime): ?string
+    private function toWebp(string $srcPath, string $mime, int $maxEdge = 0): ?string
     {
         if (!function_exists('imagewebp')) {
             return null; // GD compilado sin soporte WebP.
@@ -165,6 +182,10 @@ final class ImageService
         imagealphablending($img, false);
         imagesavealpha($img, true);
 
+        if ($maxEdge > 0) {
+            $img = self::downscale($img, $maxEdge);
+        }
+
         $webpPath = preg_replace('/\.\w+$/', '.webp', $srcPath);
         $quality  = max(1, min(100, (int) config('upload.webp_quality', 82)));
         $ok       = imagewebp($img, $webpPath, $quality);
@@ -176,6 +197,38 @@ final class ImageService
         }
         @unlink($srcPath); // Original ya convertido.
         return basename($webpPath);
+    }
+
+    /**
+     * Reduce la imagen para que su lado mayor no exceda $maxEdge, conservando
+     * proporción y transparencia. Si ya entra, devuelve la misma imagen sin
+     * tocarla: nunca se amplía, porque agrandar solo agrega peso y borrosidad.
+     *
+     * Público y estático para que el script de mantenimiento que normaliza las
+     * imágenes ya subidas use exactamente este camino y no una copia que pueda
+     * divergir.
+     */
+    public static function downscale(\GdImage $img, int $maxEdge): \GdImage
+    {
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $long = max($w, $h);
+        if ($long <= $maxEdge || $long === 0) {
+            return $img;
+        }
+
+        $ratio = $maxEdge / $long;
+        $nw    = max(1, (int) round($w * $ratio));
+        $nh    = max(1, (int) round($h * $ratio));
+
+        $dst = imagecreatetruecolor($nw, $nh);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 0, 0, 0, 127));
+        imagecopyresampled($dst, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($img);
+
+        return $dst;
     }
 
     /**

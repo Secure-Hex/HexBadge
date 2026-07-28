@@ -38,7 +38,7 @@ $profileUrl = rtrim((string) config('app.earner_url'), '/') . '/earner/' . (stri
         <ul class="pending-list">
             <?php foreach ($pending as $p): ?>
                 <li>
-                    <img src="<?= e(badge_image_url((string) $p['image_filename'])) ?>" alt="">
+                    <img src="<?= e(badge_image_url((string) $p['image_filename'])) ?>" alt="" loading="lazy">
                     <div class="pending-info">
                         <strong><?= e((string) $p['template_name']) ?></strong>
                         <span class="muted"><?= e((string) $p['issuer_name']) ?> · <?= e(date_long((string) $p['issued_at'])) ?></span>

@@ -18,7 +18,7 @@ if ($query === '') {
         <a class="person-card" href="/earner/<?= e((string) $p['uuid']) ?>">
             <span class="person-avatar">
                 <?php if (!empty($p['avatar_filename'])): ?>
-                    <img src="<?= e(profile_image_url((string) $p['avatar_filename'])) ?>" alt="">
+                    <img src="<?= e(profile_image_url((string) $p['avatar_filename'])) ?>" alt="" loading="lazy">
                 <?php else: ?>
                     <span><?= e($initial) ?></span>
                 <?php endif; ?>

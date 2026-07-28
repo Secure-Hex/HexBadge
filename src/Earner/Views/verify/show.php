@@ -139,7 +139,7 @@ $embedCode = '<a href="' . $verifyUrl . '" target="_blank" rel="noopener" style=
         <!-- Vitrina: la pieza, asentada -->
         <div class="cred-stage">
             <?php if (!empty($logoUrl)): ?>
-                <img class="cred-issuer-mark" src="<?= e($logoUrl) ?>" alt="" loading="lazy">
+                <img class="cred-issuer-mark" src="<?= e($logoUrl) ?>" alt="">
             <?php endif; ?>
             <figure class="cred-piece">
                 <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>"

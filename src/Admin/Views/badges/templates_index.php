@@ -29,7 +29,7 @@ $showCompany = count($companies) > 1;
         <tbody>
         <?php foreach ($templates as $t): ?>
             <tr>
-                <td><img src="<?= e(badge_image_url((string) $t['image_filename'])) ?>" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:6px"></td>
+                <td><img src="<?= e(badge_image_url((string) $t['image_filename'])) ?>" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:6px" loading="lazy"></td>
                 <td><a href="/admin/templates/<?= e((string) $t['uuid']) ?>"><?= e((string) $t['name']) ?></a></td>
                 <?php if ($showCompany): ?><td class="muted"><?= e((string) ($t['company_name'] ?? '—')) ?></td><?php endif; ?>
                 <td><span class="badge-status status-<?= $t['state'] === 'active' ? 'accepted' : ($t['state'] === 'archived' ? 'revoked' : 'pending') ?>"><?= e((string) $t['state']) ?></span></td>
