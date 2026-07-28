@@ -1,43 +1,51 @@
 <?php
 /**
+ * Aceptar o rechazar una credencial recién emitida.
+ *
  * @var array<string,mixed> $badge
  * @var array<int,string>   $tags
  * @var string              $verifyUrl
  */
 use HexBadge\Core\CSRF;
+
 $b = $badge;
 ?>
-<div class="auth-card" style="max-width:520px;text-align:center">
-    <img src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="<?= e((string) $b['template_name']) ?>"
-         style="width:150px;height:150px;object-fit:contain;background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:12px">
-    <h1 style="margin:1rem 0 .15rem"><?= e((string) $b['template_name']) ?></h1>
-    <p class="muted" style="margin-top:0"><?= e((string) $b['issuer_name']) ?> te emitió este badge</p>
+<div class="decide-card">
+    <p class="decide-eyebrow"><?= e((string) $b['issuer_name']) ?> te emitió una credencial</p>
+
+    <img class="decide-image" src="<?= e(badge_image_url((string) $b['image_filename'])) ?>" alt="">
+    <h1><?= e((string) $b['template_name']) ?></h1>
 
     <?php if (!empty($b['template_description'])): ?>
-        <p style="color:var(--text-2);max-width:42ch;margin:.75rem auto"><?= e((string) $b['template_description']) ?></p>
+        <p class="decide-desc"><?= e((string) $b['template_description']) ?></p>
     <?php endif; ?>
 
     <?php if (!empty($tags)): ?>
-        <p><?php foreach ($tags as $t): ?><span class="tag"><?= e($t) ?></span><?php endforeach; ?></p>
+        <p class="decide-tags"><?php foreach ($tags as $t): ?><span class="tag"><?= e($t) ?></span><?php endforeach; ?></p>
     <?php endif; ?>
 
-    <div class="verify-meta" style="text-align:left;margin:1.25rem 0">
-        <table class="table" style="box-shadow:none;margin:0">
-            <tr><th>Emitido</th><td><?= e((string) $b['issued_at']) ?></td></tr>
-            <?php if (!empty($b['expires_at'])): ?><tr><th>Expira</th><td><?= e((string) $b['expires_at']) ?></td></tr><?php endif; ?>
-        </table>
-    </div>
+    <dl class="decide-meta">
+        <dt>Emitida</dt><dd><?= e(date_long((string) $b['issued_at'])) ?></dd>
+        <?php if (!empty($b['expires_at'])): ?>
+            <dt>Vence</dt><dd><?= e(date_long((string) $b['expires_at'])) ?></dd>
+        <?php endif; ?>
+    </dl>
 
-    <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
+    <p class="decide-note">
+        Al aceptarla, tu nombre y esta credencial quedan en una página pública que
+        cualquiera puede consultar para verificarla.
+    </p>
+
+    <div class="decide-actions">
         <form method="POST" action="/me/badge/<?= e((string) $b['uuid']) ?>/accept">
             <?= CSRF::field() ?>
-            <button type="submit" class="btn btn-primary">Aceptar badge</button>
+            <button type="submit" class="btn btn-primary btn-block">Aceptar credencial</button>
         </form>
-        <form method="POST" action="/me/badge/<?= e((string) $b['uuid']) ?>/reject" data-confirm="¿Rechazar este badge? No podrás recuperarlo desde acá.">
+        <a class="btn btn-block" href="<?= e($verifyUrl) ?>" target="_blank" rel="noopener">Ver cómo se verá</a>
+        <form method="POST" action="/me/badge/<?= e((string) $b['uuid']) ?>/reject"
+              data-confirm="Vas a rechazar «<?= e((string) $b['template_name']) ?>» de <?= e((string) $b['issuer_name']) ?>. No vas a poder recuperarla desde acá. ¿Confirmás?">
             <?= CSRF::field() ?>
-            <button type="submit" class="btn">Rechazar</button>
+            <button type="submit" class="btn btn-ghost btn-block decide-reject">Rechazar</button>
         </form>
     </div>
-
-    <p style="margin-top:1rem"><a class="muted" href="<?= e($verifyUrl) ?>" target="_blank" rel="noopener" style="font-size:.85rem">Ver la verificación pública</a></p>
 </div>
