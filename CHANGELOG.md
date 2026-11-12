@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0] - 2026-11-12
+### Nuevas funcionalidades
+- inicio de sesión del panel admin con Hermes (OIDC) (a696fbe)
+- logo propio de HexBadge como favicon y en el login (f579d44)
+### Otros
+- despliegue automático a la VPS al publicar una versión (4f40e88)
+
 ## [1.4.0] - 2026-07-28
 ### Nuevas funcionalidades
 - PNG gemelo para el correo y las vistas previas de redes (4b82cf4)
