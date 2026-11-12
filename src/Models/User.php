@@ -20,6 +20,28 @@ final class User extends Model
     }
 
     /**
+     * Which unique key a duplicate-key error on `users` hit, from PDO's errorInfo
+     * (MySQL error 1062, "Duplicate entry '...' for key '...'"): 'hermes_sub', 'email' or null.
+     *
+     * @param array<int,mixed>|null $errorInfo
+     */
+    public static function duplicateKey(?array $errorInfo): ?string
+    {
+        if (($errorInfo[1] ?? null) !== 1062 || !is_string($errorInfo[2] ?? null)) {
+            return null;
+        }
+        // MySQL 8 prefixes the table ("users.email"); MariaDB does not.
+        if (preg_match("/for key '(?:[^'.]+\\.)?([^']+)'$/", $errorInfo[2], $match) !== 1) {
+            return null;
+        }
+        return match ($match[1]) {
+            'uq_users_hermes_sub' => 'hermes_sub',
+            'email'               => 'email',
+            default               => null,
+        };
+    }
+
+    /**
      * Lista de usuarios, opcionalmente filtrada por empresa.
      * $companyId null = sin filtro (todos, incluidos superadmins).
      *

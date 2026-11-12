@@ -25,6 +25,7 @@ $flashWarning = Session::flash('warning');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ? $pageTitle . ' — ' . $appName : $appName) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= asset('brand/hexbadge-mark.svg') ?>">
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>
@@ -38,7 +39,7 @@ $flashWarning = Session::flash('warning');
             <div class="topbar-user">
                 <span class="avatar"><?= e($initial) ?></span>
                 <a href="/admin/account"><?= e($name) ?></a>
-                <a class="btn btn-sm" href="/logout">Salir</a>
+                <form method="POST" action="/logout" style="display:inline"><?= \HexBadge\Core\CSRF::field() ?><button type="submit" class="btn btn-sm">Salir</button></form>
             </div>
         </header>
         <main class="content" id="main">

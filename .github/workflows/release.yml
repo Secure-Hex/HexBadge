@@ -16,6 +16,8 @@ jobs:
     # hechos con GITHUB_TOKEN no disparan workflows).
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,3 +54,35 @@ jobs:
           gh release create "${{ steps.release.outputs.tag }}" \
             --title "${{ steps.release.outputs.tag }}" \
             --notes "$notes"
+
+  # El deploy espera a que el workflow Tests termine en verde sobre el commit que disparó
+  # el release (el commit de release solo toca VERSION y CHANGELOG, y al subirlo con
+  # GITHUB_TOKEN no dispara Tests).
+  tests-passed:
+    needs: release
+    if: needs.release.outputs.tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    steps:
+      - name: Esperar el workflow Tests del commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          id=
+          for _ in $(seq 30); do
+            id=$(gh run list --workflow tests.yml --commit "$SHA" --event push --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$id" ] && break
+            sleep 10
+          done
+          [ -n "$id" ] || { echo "no hay ejecución de Tests para $SHA" >&2; exit 1; }
+          gh run watch "$id" --exit-status --interval 15
+
+  deploy:
+    needs: [release, tests-passed]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.release.outputs.tag }}

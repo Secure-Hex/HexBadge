@@ -133,7 +133,10 @@ SET company_id = (
     WHERE company_id IS NOT NULL
     GROUP BY company_id ORDER BY COUNT(*) DESC LIMIT 1
 )
-WHERE role <> 'superadmin' AND company_id IS NULL;
+-- password_hash IS NOT NULL: users created by Hermes (JIT, no password) wait for a superadmin
+-- to assign their company; this one-time backfill must never hand them one on a later deploy.
+-- (hermes_sub can't be used here: the column is added further down, in block 016.)
+WHERE role <> 'superadmin' AND company_id IS NULL AND password_hash IS NOT NULL;
 
 -- ---------- Claves foráneas de empresa (sólo si faltan) ----------
 
@@ -325,3 +328,34 @@ SET @s := (SELECT IF(COUNT(*)=0,
   FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='badge_templates' AND COLUMN_NAME='design_recipe');
 PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- ---------------------------------------------------------------------------
+-- 016 — Login del panel admin con Hermes (OpenID Connect)
+-- users.hermes_sub (único), password_hash opcional y back-channel logouts.
+-- ---------------------------------------------------------------------------
+SET @s := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE users ADD COLUMN hermes_sub CHAR(36) NULL AFTER password_hash',
+  'DO 0')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='hermes_sub');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+SET @s := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE users ADD UNIQUE KEY uq_users_hermes_sub (hermes_sub)',
+  'DO 0')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND INDEX_NAME='uq_users_hermes_sub');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- MODIFY es idempotente por sí mismo: repetirlo deja la columna igual.
+ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL;
+
+CREATE TABLE IF NOT EXISTS oidc_backchannel_logouts (
+    jti        VARCHAR(255) NOT NULL PRIMARY KEY,
+    sid        VARCHAR(255) NULL,
+    sub        VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL,
+    INDEX idx_oidc_bcl_sid (sid),
+    INDEX idx_oidc_bcl_sub_created (sub, created_at),
+    INDEX idx_oidc_bcl_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

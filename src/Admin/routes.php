@@ -33,21 +33,35 @@ use HexBadge\Admin\Controllers\CompanyController;
 use HexBadge\Admin\Controllers\FontController;
 use HexBadge\Admin\Controllers\ApiController;
 use HexBadge\Admin\Controllers\InstallController;
+use HexBadge\Core\Auth;
 
 /** @var \HexBadge\Core\Router $router */
 
 // --- Autenticación ---
 $router->get('/', [AuthController::class, 'showLogin']);
 $router->get('/login', [AuthController::class, 'showLogin']);
-$router->post('/login', [AuthController::class, 'login']);
-$router->get('/logout', [AuthController::class, 'logout']);
-$router->get('/login/2fa', [AuthController::class, 'showTwoFactor']);
-$router->post('/login/2fa', [AuthController::class, 'twoFactor']);
-$router->get('/forgot-password', [AuthController::class, 'showForgot']);
-$router->post('/forgot-password', [AuthController::class, 'sendReset']);
-$router->get('/reset-password/{token}', [AuthController::class, 'showReset']);
-$router->post('/reset-password/{token}', [AuthController::class, 'reset']);
+$router->post('/logout', [AuthController::class, 'logout']);
+$router->get('/auth/hermes/login', [AuthController::class, 'redirectToHermes']);
+$router->get('/auth/hermes/callback', [AuthController::class, 'hermesCallback']);
+$router->post('/auth/hermes/backchannel-logout', [AuthController::class, 'backchannelLogout']);
+$router->get('/awaiting-company', [AuthController::class, 'awaitingCompany']);
 $router->get('/install', [InstallController::class, 'alreadyInstalled']);
+
+// --- Break-glass (ADMIN_LOCAL_LOGIN): the single guard point for every password-based
+// route. With the flag off they are not registered, so the router answers 404. ---
+if (Auth::localLoginEnabled()) {
+    $router->post('/login', [AuthController::class, 'login']);
+    $router->get('/login/2fa', [AuthController::class, 'showTwoFactor']);
+    $router->post('/login/2fa', [AuthController::class, 'twoFactor']);
+    $router->get('/forgot-password', [AuthController::class, 'showForgot']);
+    $router->post('/forgot-password', [AuthController::class, 'sendReset']);
+    $router->get('/reset-password/{token}', [AuthController::class, 'showReset']);
+    $router->post('/reset-password/{token}', [AuthController::class, 'reset']);
+    // Invitations set a password, so they only make sense with break-glass on (Hermes provisions JIT).
+    $router->get('/accept-invite/{token}', [UserController::class, 'showAccept']);
+    $router->post('/accept-invite/{token}', [UserController::class, 'accept']);
+    $router->post('/admin/users', [UserController::class, 'invite']);
+}
 
 // --- Cuenta del usuario (contraseña + 2FA) ---
 $router->get('/admin/account', [AccountController::class, 'index']);
@@ -55,10 +69,6 @@ $router->post('/admin/account/password', [AccountController::class, 'changePassw
 $router->get('/admin/account/totp', [AccountController::class, 'totpSetup']);
 $router->post('/admin/account/totp', [AccountController::class, 'totpEnable']);
 $router->post('/admin/account/totp/disable', [AccountController::class, 'totpDisable']);
-
-// --- Alta de usuarios por invitación (público con token) ---
-$router->get('/accept-invite/{token}', [UserController::class, 'showAccept']);
-$router->post('/accept-invite/{token}', [UserController::class, 'accept']);
 
 // NOTA: la verificación pública (/verify, /badges, /issuer) y las imágenes de
 // badges viven en el DOMINIO PÚBLICO (portal de personas), no en admin.
@@ -121,7 +131,6 @@ $router->get('/admin/analytics/export', [AnalyticsController::class, 'export']);
 
 // --- Usuarios (solo superadmin) ---
 $router->get('/admin/users', [UserController::class, 'index']);
-$router->post('/admin/users', [UserController::class, 'invite']);
 $router->get('/admin/users/{uuid}/edit', [UserController::class, 'edit']);
 $router->post('/admin/users/{uuid}', [UserController::class, 'update']);
 
