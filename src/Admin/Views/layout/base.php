@@ -25,6 +25,7 @@ $flashWarning = Session::flash('warning');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ? $pageTitle . ' — ' . $appName : $appName) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= asset('brand/hexbadge-mark.svg') ?>">
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body>

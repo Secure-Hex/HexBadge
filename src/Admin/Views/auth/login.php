@@ -11,7 +11,7 @@ $reset    = $reset ?? false;
 ?>
 <div class="auth-card">
     <div class="brand-row">
-        <span class="brand-mark"><?= \HexBadge\Core\View::renderPartial('layout/securelogo') ?></span>
+        <span class="brand-mark"><?= \HexBadge\Core\View::renderPartial('layout/hexbadgelogo') ?></span>
         <b>HexBadge</b>
     </div>
     <h1>Iniciar sesión</h1>

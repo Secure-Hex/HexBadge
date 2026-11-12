@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" fill="none">
+  <!-- HexBadge mark: hexagon medal with ribbon tails + sealed dot. Same grid, stroke and brand blue as the Aegis and Hermes marks. -->
+  <path d="M32 7L46.7 15.5V32.5L32 41L17.3 32.5V15.5Z" stroke="#0266cf" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M24.5 45L21 57M39.5 45L43 57" stroke="#0266cf" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="32" cy="24" r="4.5" fill="#0266cf"/>
+</svg>
