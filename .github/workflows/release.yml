@@ -84,5 +84,8 @@ jobs:
   deploy:
     needs: [release, tests-passed]
     uses: ./.github/workflows/deploy.yml
+    # Without this the called workflow receives the production environment secrets empty
+    # (v1.5.0 failed with "Host key verification failed" and SSH_KEY/KNOWN_HOSTS blank).
+    secrets: inherit
     with:
       version: ${{ needs.release.outputs.tag }}
