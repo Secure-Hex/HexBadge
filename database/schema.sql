@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS users (
     uuid          CHAR(36) NOT NULL UNIQUE,            -- UUID v4 público
     name          VARCHAR(100) NOT NULL,
     email         VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,               -- password_hash(BCRYPT, cost=12)
+    password_hash VARCHAR(255) NULL,                   -- password_hash(BCRYPT, cost=12); NULL = solo Hermes
+    hermes_sub    CHAR(36) NULL,                       -- `sub` de Hermes (OIDC); NULL = aún no vinculado
     role          ENUM('superadmin','admin','issuer') NOT NULL DEFAULT 'issuer',
     company_id    INT UNSIGNED NULL,                   -- empresa del usuario (NULL = superadmin global)
     is_active     TINYINT(1) NOT NULL DEFAULT 1,
@@ -46,7 +47,20 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_ip VARCHAR(45) NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_users_hermes_sub (hermes_sub),
     FOREIGN KEY (company_id) REFERENCES companies(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Back-channel logouts de Hermes: cada fila cierra las sesiones de su sid (o, sin sid,
+-- las de su sub abiertas antes) y su jti bloquea tokens repetidos. Se purgan solas.
+CREATE TABLE IF NOT EXISTS oidc_backchannel_logouts (
+    jti        VARCHAR(255) NOT NULL PRIMARY KEY,
+    sid        VARCHAR(255) NULL,
+    sub        VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL,
+    INDEX idx_oidc_bcl_sid (sid),
+    INDEX idx_oidc_bcl_sub_created (sub, created_at),
+    INDEX idx_oidc_bcl_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Empresas accesibles por un usuario (admin/issuer con acceso a >1 empresa).

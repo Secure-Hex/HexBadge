@@ -79,7 +79,10 @@ final class InstallController
             return $this->form($e->getMessage(), $request->all());
         }
 
-        Session::flash('success', 'Instalación completada. Ya podés iniciar sesión.');
+        // The password login is break-glass only (ADMIN_LOCAL_LOGIN, off by default, and it needs
+        // 2FA), so the new superadmin's way in is Hermes with this same email.
+        Session::flash('success', 'Instalación completada.');
+        Session::flash('warning', 'Configura Hermes (HERMES_* en .env) e inicia sesión con Hermes usando el mismo correo verificado del superadmin: la cuenta se vincula en el primer ingreso. El acceso con contraseña es solo de emergencia: requiere ADMIN_LOCAL_LOGIN=true y tener 2FA activo.');
         return Response::redirect('/login');
     }
 

@@ -7,7 +7,8 @@ namespace HexBadge\Core;
 /**
  * Gestión segura de sesiones (CLAUDE.md §4.1).
  *
- * - Cookies secure + httponly + SameSite=Strict
+ * - Cookies secure + httponly + SameSite (Strict por defecto; el panel admin usa Lax
+ *   porque el callback de Hermes es un GET de nivel superior desde otro origen)
  * - Regeneración de ID en login
  * - Timeout de inactividad (30 min)
  * - Solo se almacena user_id y role en sesión (nada sensible §14)
@@ -16,7 +17,7 @@ final class Session
 {
     private static bool $started = false;
 
-    public static function start(string $name = 'HEXBADGE_SESS'): void
+    public static function start(string $name = 'HEXBADGE_SESS', string $sameSite = 'Strict'): void
     {
         if (self::$started || session_status() === PHP_SESSION_ACTIVE) {
             self::$started = true;
@@ -34,7 +35,7 @@ final class Session
             'domain'   => '',          // host-only; no confiar en HTTP_HOST
             'secure'   => $secure,
             'httponly' => true,
-            'samesite' => 'Strict',
+            'samesite' => $sameSite,
         ]);
 
         session_name($name);
@@ -121,7 +122,7 @@ final class Session
                     'domain'   => $params['domain'],
                     'secure'   => $params['secure'],
                     'httponly' => $params['httponly'],
-                    'samesite' => 'Strict',
+                    'samesite' => $params['samesite'],
                 ]
             );
         }

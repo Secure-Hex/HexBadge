@@ -16,10 +16,12 @@ use HexBadge\Services\InvitationService;
 use InvalidArgumentException;
 
 /**
- * Gestión de usuarios por invitación (CLAUDE.md §7 + cambio del cliente).
+ * Gestión de usuarios (CLAUDE.md §7 + cambio del cliente).
  *
- * No hay registro abierto: el superadmin invita por email; la persona define
- * su contraseña vía /accept-invite/{token}.
+ * Con Hermes, las cuentas se crean solas en el primer login (JIT, con el rol que trae
+ * Hermes y sin empresa): aquí el superadmin les asigna empresas. Las invitaciones por
+ * email (la persona define su contraseña en /accept-invite/{token}) solo existen con
+ * ADMIN_LOCAL_LOGIN activo; sin él, sus rutas no se registran (src/Admin/routes.php).
  */
 final class UserController extends Controller
 {
@@ -28,16 +30,7 @@ final class UserController extends Controller
         if ($r = Auth::requireRole('admin')) {
             return $r;
         }
-        $companyFilter = $this->companyFilter($request);
-        return $this->view('users/index', [
-            'pageTitle'     => 'Usuarios',
-            'users'         => User::allOrdered($companyFilter),
-            'invitations'   => UserInvitation::listForAdmin($companyFilter),
-            'errors'        => [],
-            'companies'     => $this->companiesForSelector(),
-            'companyFilter' => $companyFilter,
-            'canInviteSuperadmin' => Auth::isSuperadmin(),
-        ]);
+        return $this->renderIndex($request, []);
     }
 
     public function invite(Request $request): Response
@@ -64,17 +57,27 @@ final class UserController extends Controller
             Session::flash('success', 'Invitación enviada a ' . $email . '.');
             return $this->redirect('/admin/users');
         } catch (InvalidArgumentException $e) {
-            $companyFilter = $this->companyFilter($request);
-            return $this->view('users/index', [
-                'pageTitle'     => 'Usuarios',
-                'users'         => User::allOrdered($companyFilter),
-                'invitations'   => UserInvitation::listForAdmin($companyFilter),
-                'errors'        => [$e->getMessage()],
-                'companies'     => $this->companiesForSelector(),
-                'companyFilter' => $companyFilter,
-                'canInviteSuperadmin' => Auth::isSuperadmin(),
-            ], 422);
+            return $this->renderIndex($request, [$e->getMessage()], 422);
         }
+    }
+
+    /**
+     * @param array<int,string> $errors
+     */
+    private function renderIndex(Request $request, array $errors, int $status = 200): Response
+    {
+        $companyFilter = $this->companyFilter($request);
+        $invitations   = Auth::localLoginEnabled();
+        return $this->view('users/index', [
+            'pageTitle'     => 'Usuarios',
+            'users'         => User::allOrdered($companyFilter),
+            'invitations'   => $invitations ? UserInvitation::listForAdmin($companyFilter) : [],
+            'canInvite'     => $invitations,
+            'errors'        => $errors,
+            'companies'     => $this->companiesForSelector(),
+            'companyFilter' => $companyFilter,
+            'canInviteSuperadmin' => Auth::isSuperadmin(),
+        ], $status);
     }
 
     /**

@@ -39,7 +39,7 @@ $flashWarning = Session::flash('warning');
             <div class="topbar-user">
                 <span class="avatar"><?= e($initial) ?></span>
                 <a href="/admin/account"><?= e($name) ?></a>
-                <a class="btn btn-sm" href="/logout">Salir</a>
+                <form method="POST" action="/logout" style="display:inline"><?= \HexBadge\Core\CSRF::field() ?><button type="submit" class="btn btn-sm">Salir</button></form>
             </div>
         </header>
         <main class="content" id="main">

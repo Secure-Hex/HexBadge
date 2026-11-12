@@ -40,7 +40,18 @@ if (!Installer::isInstalled()) {
         return;
     }
 } else {
-    Session::start();
+    // Hermes' back-channel logout is server to server, without cookies: no session for it.
+    if ($request->uri() !== '/auth/hermes/backchannel-logout') {
+        // Lax: the Hermes callback is a top-level cross-origin GET and must carry the cookie.
+        Session::start('HEXBADGE_SESS', 'Lax');
+
+        // Validates the session once per request (revocation, is_active, lifetime) and parks
+        // users without a company on the waiting page until a superadmin assigns one.
+        if (\HexBadge\Core\Auth::awaitingCompany() && str_starts_with($request->uri(), '/admin')) {
+            (Response::redirect('/awaiting-company'))->send();
+            return;
+        }
+    }
     // Registro central de rutas (panel + público OB + API).
     require BASE_PATH . '/src/Admin/routes.php';
 }

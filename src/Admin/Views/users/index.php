@@ -5,11 +5,14 @@
  * @var array<int,string>              $errors
  * @var array<int,array<string,mixed>> $companies
  * @var int|null                       $companyFilter
+ * @var bool                           $canInvite            invitations exist only with ADMIN_LOCAL_LOGIN on
  * @var bool                           $canInviteSuperadmin
  */
 use HexBadge\Core\CSRF;
 use HexBadge\Core\View;
-$showCompany = count($companies) > 1;
+$hasManyCompanies = count($companies) > 1;
+// Users provisioned from Hermes start without a company: keep the column so a superadmin can assign one.
+$showUserCompanyColumn = $hasManyCompanies || array_filter($users, static fn (array $u): bool => $u['role'] !== 'superadmin' && $u['company_id'] === null) !== [];
 ?>
 <h1>Usuarios</h1>
 
@@ -17,6 +20,7 @@ $showCompany = count($companies) > 1;
     <div class="alert alert-error"><?= e($err) ?></div>
 <?php endforeach; ?>
 
+<?php if ($canInvite): ?>
 <section>
     <h2>Invitar usuario</h2>
     <form method="POST" action="/admin/users" style="display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;max-width:820px">
@@ -33,7 +37,7 @@ $showCompany = count($companies) > 1;
                 <?php if ($canInviteSuperadmin): ?><option value="superadmin">Superadmin</option><?php endif; ?>
             </select>
         </div>
-        <?php if ($showCompany): ?>
+        <?php if ($hasManyCompanies): ?>
         <div style="flex:1.5;min-width:240px">
             <?= View::renderPartial('layout/company_multiselect', ['companies' => $companies, 'selectedIds' => []]) ?>
         </div>
@@ -43,10 +47,13 @@ $showCompany = count($companies) > 1;
             <button type="submit" class="btn btn-primary">Enviar invitación</button>
         </div>
     </form>
-    <p class="muted" style="font-size:.85rem">La persona recibe un email con un enlace para definir su contraseña (válido 7 días).<?php if ($showCompany): ?> El rol <strong>Superadmin</strong> es global (ignora la empresa).<?php endif; ?></p>
+    <p class="muted" style="font-size:.85rem">La persona recibe un email con un enlace para definir su contraseña (válido 7 días).<?php if ($hasManyCompanies): ?> El rol <strong>Superadmin</strong> es global (ignora la empresa).<?php endif; ?></p>
 </section>
+<?php else: ?>
+<p class="muted">Las cuentas se crean automáticamente la primera vez que alguien inicia sesión con Hermes, con el rol asignado en Hermes. Asígnales aquí sus empresas.</p>
+<?php endif; ?>
 
-<?php if ($showCompany): ?>
+<?php if ($hasManyCompanies): ?>
     <form method="GET" action="/admin/users" data-live style="display:flex;gap:.6rem;align-items:end;margin:1rem 0;max-width:360px">
         <?= View::renderPartial('layout/company_filter', ['companies' => $companies, 'selected' => $companyFilter]) ?>
         <button type="submit" class="btn">Filtrar</button>
@@ -58,17 +65,17 @@ $showCompany = count($companies) > 1;
 <section>
     <h2>Usuarios activos</h2>
     <table class="table">
-        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><?php if ($showCompany): ?><th>Empresa</th><?php endif; ?><th>Activo</th><th>Último login</th><?php if ($showCompany): ?><th></th><?php endif; ?></tr></thead>
+        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><?php if ($showUserCompanyColumn): ?><th>Empresa</th><?php endif; ?><th>Activo</th><th>Último login</th><?php if ($showUserCompanyColumn): ?><th></th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($users as $u): ?>
             <tr>
                 <td><?= e((string) $u['name']) ?></td>
                 <td class="muted"><?= e((string) $u['email']) ?></td>
                 <td><?= e((string) $u['role']) ?></td>
-                <?php if ($showCompany): ?><td class="muted"><?= e((string) ($u['company_name'] ?? ($u['role'] === 'superadmin' ? 'Global' : '—'))) ?></td><?php endif; ?>
+                <?php if ($showUserCompanyColumn): ?><td class="muted"><?= e((string) ($u['company_name'] ?? ($u['role'] === 'superadmin' ? 'Global' : '—'))) ?></td><?php endif; ?>
                 <td><?= ((int) $u['is_active'] === 1) ? 'Sí' : 'No' ?></td>
                 <td class="muted"><?= e((string) ($u['last_login_at'] ?? '—')) ?></td>
-                <?php if ($showCompany): ?><td><?php if ($u['role'] !== 'superadmin'): ?><a class="btn btn-sm" href="/admin/users/<?= e((string) $u['uuid']) ?>/edit">Empresas</a><?php endif; ?></td><?php endif; ?>
+                <?php if ($showUserCompanyColumn): ?><td><?php if ($u['role'] !== 'superadmin'): ?><a class="btn btn-sm" href="/admin/users/<?= e((string) $u['uuid']) ?>/edit">Empresas</a><?php endif; ?></td><?php endif; ?>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -79,13 +86,13 @@ $showCompany = count($companies) > 1;
 <section>
     <h2>Invitaciones</h2>
     <table class="table">
-        <thead><tr><th>Email</th><th>Rol</th><?php if ($showCompany): ?><th>Empresa</th><?php endif; ?><th>Estado</th><th>Invitó</th><th>Expira</th></tr></thead>
+        <thead><tr><th>Email</th><th>Rol</th><?php if ($hasManyCompanies): ?><th>Empresa</th><?php endif; ?><th>Estado</th><th>Invitó</th><th>Expira</th></tr></thead>
         <tbody>
         <?php foreach ($invitations as $i): ?>
             <tr>
                 <td><?= e((string) $i['email']) ?></td>
                 <td><?= e((string) $i['role']) ?></td>
-                <?php if ($showCompany): ?><td class="muted"><?= e((string) ($i['company_name'] ?? ($i['role'] === 'superadmin' ? 'Global' : '—'))) ?></td><?php endif; ?>
+                <?php if ($hasManyCompanies): ?><td class="muted"><?= e((string) ($i['company_name'] ?? ($i['role'] === 'superadmin' ? 'Global' : '—'))) ?></td><?php endif; ?>
                 <td>
                     <?php if ($i['accepted_at'] !== null): ?>
                         <span class="badge-status status-accepted">Aceptada</span>

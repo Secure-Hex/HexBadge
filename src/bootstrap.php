@@ -33,7 +33,8 @@ function load_env(): array
     }
 
     $vars = [];
-    $path = BASE_PATH . '/.env';
+    // Tests point HEXBADGE_ENV_FILE at a copy with their own settings; the app never defines it.
+    $path = defined('HEXBADGE_ENV_FILE') ? HEXBADGE_ENV_FILE : BASE_PATH . '/.env';
     if (!is_readable($path)) {
         return $vars;
     }
@@ -266,6 +267,17 @@ spl_autoload_register(static function (string $class): void {
 
     if (is_readable($file)) {
         require $file;
+    }
+});
+
+// Vendored firebase/php-jwt (lib/php-jwt), used for the Hermes OIDC tokens.
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'Firebase\\JWT\\';
+    if (str_starts_with($class, $prefix)) {
+        $file = BASE_PATH . '/lib/php-jwt/' . substr($class, strlen($prefix)) . '.php';
+        if (is_readable($file)) {
+            require $file;
+        }
     }
 });
 
