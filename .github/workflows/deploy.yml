@@ -1,0 +1,81 @@
+# Deploys an existing tag vX.Y.Z to production over SSH. The deploy key is confined on the
+# server to one forced command (deploy/hexbadge-deploy.sh); see docs/deploy.md.
+# Called by release.yml after a new release (once the Tests workflow passed), or run by
+# hand from main to redeploy a tag (rollback).
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing tag to deploy (vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only runs started from main; the `production` environment is also restricted to main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://badge.securehex.cl
+    concurrency:
+      group: hexbadge-production
+      cancel-in-progress: false
+    steps:
+      - name: Validate version
+        env:
+          TAG: ${{ inputs.version }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid version: must be vX.Y.Z" >&2; exit 1; }
+
+      # Full history: brings every tag (including the one release.yml just pushed),
+      # needed to archive the tag and to check it is on main.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify the tag is on main
+        env:
+          TAG: ${{ inputs.version }}
+        run: |
+          git rev-parse -q --verify "refs/tags/$TAG^{commit}" >/dev/null || { echo "tag $TAG not found" >&2; exit 1; }
+          git merge-base --is-ancestor "refs/tags/$TAG" origin/main || { echo "tag $TAG is not reachable from main" >&2; exit 1; }
+
+      - name: Build artifact
+        env:
+          TAG: ${{ inputs.version }}
+        # Must match ALLOWED_TOP in deploy/hexbadge-deploy.sh (docker/, docs/, tests/ stay out).
+        run: |
+          git archive --format=tar.gz -o "$RUNNER_TEMP/release.tar.gz" "refs/tags/$TAG" -- \
+            apps config database lib scripts src storage VERSION MIGRATION-PROD.sql CHANGELOG.md
+          ls -l "$RUNNER_TEMP/release.tar.gz"
+
+      - name: Deploy
+        env:
+          TAG: ${{ inputs.version }}
+          SSH_KEY: ${{ secrets.HEXBADGE_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HEXBADGE_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$RUNNER_TEMP/ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/ssh/key"
+          chmod 600 "$RUNNER_TEMP/ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/ssh/known_hosts"
+          ssh -i "$RUNNER_TEMP/ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" \
+            root@securehex.cl "$TAG" < "$RUNNER_TEMP/release.tar.gz"
+
+      - name: Remove key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh"
