@@ -102,7 +102,7 @@ final class McpController
             ],
             'create_template' => [
                 'operation'   => 'createTemplate',
-                'description' => 'Create a badge template in draft state, owned by the company given in company_id (the `company.id` that list_templates/get_template show). company_id is required for a global key; a company key may omit it (its own company is used) and cannot name another one. It cannot be issued until it is activated in the admin panel. The image must be PNG, JPEG or WebP (no SVG), max 5 MB and ' . ApiOperations::IMAGE_MAX_EDGE . 'px per side; it is stored as WebP reduced to 512px.',
+                'description' => 'Create a badge template in draft state, owned by the company given in company_id (the `company.id` that list_templates/get_template show). company_id is required for a global key; a company key may omit it (its own company is used) and cannot name another one. It cannot be issued until it is activated in the admin panel. The image must be PNG, JPEG or WebP (no SVG), max 5 MB and ' . ApiOperations::IMAGE_MAX_EDGE . 'px per side; it is stored as WebP (PNG/JPEG if the server lacks WebP, in which case WebP input is rejected) reduced to 512px.',
                 'schema'      => [
                     'type'       => 'object',
                     'properties' => [

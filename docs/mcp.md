@@ -49,7 +49,7 @@ Parameters use the same names and validation as the REST bodies. A successful ca
 - **Image** (required): `{"data": "<base64>", "mime_type": "image/png" | "image/jpeg" | "image/webp"}`.
   - `data` must be valid base64 (strict decode) and at most 5 MB decoded, 2048 px per side (`ApiOperations::IMAGE_MAX_EDGE`).
   - The real type is read from the bytes and must match `mime_type`. SVG is not accepted.
-  - It is stored like a panel upload: random name, re-encoded to WebP and reduced to 512 px on the longest side.
+  - It is stored like a panel upload: random name, re-encoded to WebP and reduced to 512 px on the longest side. If the server's GD lacks WebP, it is re-encoded as PNG (JPEG input stays JPEG) with the matching extension, and WebP input is rejected (`No se pudo procesar la imagen`).
   - The whole request body may be up to 8 MiB, enough for a 5 MB image in base64. Larger bodies get HTTP 413.
 
 It returns the template like `get_template` (`id`, `state: "draft"`, `company`, ...).

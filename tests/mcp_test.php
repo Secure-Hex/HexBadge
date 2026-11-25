@@ -281,6 +281,38 @@ try {
         && (int) $db->fetchColumn("SELECT COUNT(*) FROM badge_templates WHERE name LIKE '" . TNAME . "%'") === 3);
     check('no image temp files are left behind', (glob(sys_get_temp_dir() . '/hbimg*') ?: []) === $tmpBefore);
 
+    // --- GD without WebP (like prod) ---------------------------------------------
+    $stored = static fn (array $r): string => isset($r['structuredContent']['id'])
+        ? (string) $db->fetchColumn('SELECT image_filename FROM badge_templates WHERE uuid = ?', [$r['structuredContent']['id']]) : '';
+    $badgeDir = BASE_PATH . '/apps/earner/public/uploads/badges/';
+    $staticWebp = (static function (): string {
+        ob_start();
+        imagewebp(imagecreatetruecolor(8, 8), null, 80);
+        return (string) ob_get_clean();
+    })();
+    \HexBadge\Services\ImageService::$forceNoWebp = true;
+    try {
+        $name = $stored($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($png(1254, 800)), 'mime_type' => 'image/png'], 'nowebp png')));
+        $info = $name !== '' ? @getimagesize($badgeDir . $name) : false;
+        check('without WebP a PNG is stored as .png', str_ends_with($name, '.png') && is_file($badgeDir . $name));
+        check('without WebP the PNG is valid and reduced to 512px', is_array($info) && $info[2] === IMAGETYPE_PNG && max($info[0], $info[1]) === 512);
+        $jpg = (static function (): string {
+            ob_start();
+            imagejpeg(imagecreatetruecolor(1000, 600), null, 80);
+            return (string) ob_get_clean();
+        })();
+        $name = $stored($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($jpg), 'mime_type' => 'image/jpeg'], 'nowebp jpg')));
+        $info = $name !== '' ? @getimagesize($badgeDir . $name) : false;
+        check('without WebP a JPEG is stored as a reduced .jpg', str_ends_with($name, '.jpg') && is_array($info) && $info[2] === IMAGETYPE_JPEG && max($info[0], $info[1]) === 512);
+        $before = $files();
+        check('without WebP a WebP upload is a tool error', str_contains($err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($staticWebp), 'mime_type' => 'image/webp'], 'nowebp webp'))), 'No se pudo procesar la imagen'));
+        check('the rejected WebP leaves no file', $files() === $before);
+    } finally {
+        \HexBadge\Services\ImageService::$forceNoWebp = false;
+    }
+    $name = $stored($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($staticWebp), 'mime_type' => 'image/webp'], 'webp')));
+    check('with WebP a static WebP is stored as .webp', str_ends_with($name, '.webp') && is_file($badgeDir . $name));
+
     // --- create_template company_id (global keys pick the company) ---------------
     $uuidA   = (string) $db->fetchColumn('SELECT uuid FROM companies WHERE id = ?', [$coA]);
     $uuidB   = (string) $db->fetchColumn('SELECT uuid FROM companies WHERE id = ?', [$coB]);

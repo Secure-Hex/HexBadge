@@ -39,6 +39,12 @@ final class ImageService
     private const MAX_EDGE_PROFILE = 1280;  // las portadas ocupan el ancho de la tarjeta
     private const MAX_EDGE_LOGO    = 600;
 
+    /**
+     * Solo para tests: simula un GD sin WebP (como prod), que no puede ni leer
+     * ni escribir ese formato.
+     */
+    public static bool $forceNoWebp = false;
+
     private int $maxBytes;
 
     public function __construct()
@@ -68,10 +74,11 @@ final class ImageService
      * Procesa la imagen de un badge que llegó por la API/MCP (no es un upload
      * HTTP, así que `is_uploaded_file()` no aplica). Misma validación y mismo
      * guardado que processUpload(): MIME real con finfo, nombre aleatorio,
-     * conversión a WebP y reducción a MAX_EDGE_BADGE. Sin SVG: el marcado lo
-     * escribe el cliente de la API. A diferencia del panel, si GD no puede
-     * convertirla (p. ej. WebP animado) se rechaza en vez de guardar el original
-     * sin reducir. El archivo de origen NO se toca: lo borra quien lo creó.
+     * recodificación (WebP, o PNG/JPEG si GD no tiene WebP) y reducción a
+     * MAX_EDGE_BADGE. Sin SVG: el marcado lo escribe el cliente de la API. A
+     * diferencia del panel, si GD no puede recodificarla (p. ej. WebP animado, o
+     * cualquier WebP en un servidor sin WebP) se rechaza en vez de guardar el
+     * original sin reducir. El archivo de origen NO se toca: lo borra quien lo creó.
      *
      * @param string $path Archivo temporal propio, ya escrito en disco.
      */
@@ -308,10 +315,10 @@ final class ImageService
      * @param array<string,string> $extByMime  MIME permitido => extensión
      * @param bool                 $uploaded   false solo para archivos propios del servidor
      *                                         (processApiBadge): se copian en vez de moverse.
-     * @param bool                 $requireWebp true: si GD no puede convertir/reducir la imagen,
-     *                                         se borra y se rechaza en vez de guardar el original.
+     * @param bool                 $requireReencode true: si GD no puede recodificar/reducir la
+     *                                         imagen, se borra y se rechaza en vez de guardar el original.
      */
-    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg, int $maxEdge = 0, bool $uploaded = true, bool $requireWebp = false): string
+    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg, int $maxEdge = 0, bool $uploaded = true, bool $requireReencode = false): string
     {
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             throw new InvalidArgumentException('Error al subir la imagen');
@@ -341,17 +348,20 @@ final class ImageService
         }
 
         // SVG: sanitizar tras mover (ya en disco bajo nuestro control).
-        // PNG/JPG/WebP: (re)codificar a WebP reducido. Si falla, se conserva el
-        // original, salvo con $requireWebp: ahí se descarta y se rechaza.
+        // PNG/JPG/WebP: recodificar reducida. Si falla, se conserva el original,
+        // salvo con $requireReencode: ahí se descarta y se rechaza.
         if ($sanitizeSvg && $mime === 'image/svg+xml') {
             $this->sanitizeSvg($dest);
         } elseif (in_array($mime, ['image/png', 'image/jpeg', 'image/webp'], true)) {
-            $webp = $this->toWebp($dest, $mime, $maxEdge);
-            if ($webp === null && $requireWebp) {
-                @unlink($dest);
-                throw new InvalidArgumentException('No se pudo procesar la imagen (¿WebP animado?). Usa una imagen estática PNG, JPEG o WebP');
+            $reencoded = $this->reencode($dest, $mime, $maxEdge);
+            if ($reencoded === null) {
+                \HexBadge\Core\Logger::app('warning', 'No se pudo recodificar la imagen (' . $mime . ($requireReencode ? ', rechazada' : ', se conserva el original') . ')');
             }
-            $filename = $webp ?? $filename;
+            if ($reencoded === null && $requireReencode) {
+                @unlink($dest);
+                throw new InvalidArgumentException('No se pudo procesar la imagen. Usa una imagen estática PNG o JPEG');
+            }
+            $filename = $reencoded ?? $filename;
         }
 
         // 0644: imágenes públicas; en cPanel el contenido estático lo sirve otro user.
@@ -360,14 +370,18 @@ final class ImageService
     }
 
     /**
-     * Convierte un PNG/JPG ya en disco a WebP, borra el original y devuelve el
-     * nuevo nombre. Devuelve null si GD no soporta WebP o la imagen es inválida
-     * (en ese caso el llamador conserva el archivo original).
+     * Recodifica un PNG/JPG/WebP ya en disco reducido a $maxEdge, borra el
+     * original y devuelve el nuevo nombre. Sale en WebP; si GD se compiló sin
+     * WebP (como en prod), en PNG (o JPEG si el origen era JPEG, para no inflar
+     * fotos), con la extensión del formato real. Devuelve null si la imagen es
+     * inválida o es un WebP que este GD no sabe leer (el llamador decide si
+     * conserva el original).
      */
-    private function toWebp(string $srcPath, string $mime, int $maxEdge = 0): ?string
+    private function reencode(string $srcPath, string $mime, int $maxEdge = 0): ?string
     {
-        if (!function_exists('imagewebp')) {
-            return null; // GD compilado sin soporte WebP.
+        $webp = function_exists('imagewebp') && !self::$forceNoWebp;
+        if ($mime === 'image/webp' && !$webp) {
+            return null; // GD sin WebP tampoco lo decodifica.
         }
         $img = match ($mime) {
             'image/png'  => @imagecreatefrompng($srcPath),
@@ -386,21 +400,27 @@ final class ImageService
             $img = self::downscale($img, $maxEdge);
         }
 
-        $webpPath = preg_replace('/\.\w+$/', '.webp', $srcPath);
-        $quality  = max(1, min(100, (int) config('upload.webp_quality', 82)));
-        // A un temporal: con un WebP de origen, $webpPath ES el original, y un
+        $ext     = $webp ? 'webp' : ($mime === 'image/jpeg' ? 'jpg' : 'png');
+        $outPath = (string) preg_replace('/\.\w+$/', '.' . $ext, $srcPath);
+        $quality = max(1, min(100, (int) config('upload.webp_quality', 82)));
+        // A un temporal: si el formato no cambia, $outPath ES el original, y un
         // fallo a mitad de escritura no debe dejarlo truncado.
-        $ok       = imagewebp($img, $webpPath . '.tmp', $quality) && rename($webpPath . '.tmp', $webpPath);
+        $tmp = $outPath . '.tmp';
+        $ok  = match ($ext) {
+            'webp'  => imagewebp($img, $tmp, $quality),
+            'jpg'   => imagejpeg($img, $tmp, $quality),
+            default => imagepng($img, $tmp, 9),
+        } && rename($tmp, $outPath);
         imagedestroy($img);
 
         if (!$ok) {
-            @unlink($webpPath . '.tmp');
+            @unlink($tmp);
             return null;
         }
-        if ($webpPath !== $srcPath) {
+        if ($outPath !== $srcPath) {
             @unlink($srcPath); // Original ya convertido.
         }
-        return basename($webpPath);
+        return basename($outPath);
     }
 
     /**
