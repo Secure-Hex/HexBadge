@@ -13,13 +13,17 @@ use HexBadge\Services\ApiOperations;
  * Remote MCP server (Streamable HTTP, stateless, JSON-only): POST /mcp.
  *
  * Thin layer over ApiOperations, the same logic behind API v1: same API keys,
- * scopes, rate limit and company scoping. No SSE and no sessions.
+ * scopes, rate limit and company scoping. Exposes the API v1 operations plus
+ * MCP-only template writes (create_template, archive_template) under
+ * templates:write. No SSE and no sessions.
  * Docs: docs/mcp.md.
  */
 final class McpController
 {
     private const PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26']; // newest first
-    private const MAX_BODY_BYTES    = 1_048_576;
+    // Fits create_template's 5 MB image as base64 (~6.7 MB) plus the JSON around it.
+    // Only read after authentication. PHP's post_max_size (default 8M) must stay >= this.
+    private const MAX_BODY_BYTES    = 8_388_608;
 
     private const UUID   = ['type' => 'string', 'format' => 'uuid'];
     private const EMAIL  = ['type' => 'string', 'format' => 'email'];
@@ -96,6 +100,38 @@ final class McpController
                 ],
                 'annotations' => ['readOnlyHint' => false, 'destructiveHint' => true],
             ],
+            'create_template' => [
+                'operation'   => 'createTemplate',
+                'description' => 'Create a badge template in draft state, owned by the API key\'s company. It cannot be issued until it is activated in the admin panel. The image must be PNG, JPEG or WebP (no SVG), max 5 MB and ' . ApiOperations::IMAGE_MAX_EDGE . 'px per side; it is stored as WebP reduced to 512px.',
+                'schema'      => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'name'          => ['type' => 'string', 'maxLength' => 200],
+                        'description'   => ['type' => 'string', 'maxLength' => 5000],
+                        'criteria_text' => ['type' => 'string', 'maxLength' => 5000, 'description' => 'What the earner did to get the badge'],
+                        'criteria_url'  => ['type' => 'string', 'format' => 'uri'],
+                        'expires_days'  => ['type' => 'integer', 'minimum' => 1, 'maximum' => 3650, 'description' => 'Badge validity in days; omit for no expiry'],
+                        'is_public'     => ['type' => 'boolean', 'default' => true],
+                        'skills_tags'   => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Non-empty tags without commas'],
+                        'image'         => [
+                            'type'       => 'object',
+                            'properties' => [
+                                'data'      => ['type' => 'string', 'contentEncoding' => 'base64', 'description' => 'Image bytes, base64 (max 5 MB decoded)'],
+                                'mime_type' => ['type' => 'string', 'enum' => ApiOperations::IMAGE_MIMES],
+                            ],
+                            'required'   => ['data', 'mime_type'],
+                        ],
+                    ],
+                    'required'   => ['name', 'description', 'criteria_text', 'image'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false],
+            ],
+            'archive_template' => [
+                'operation'   => 'archiveTemplate',
+                'description' => 'Archive a badge template, like the admin panel does: no new badges can be issued from it. Already issued badges are not touched. Archiving an archived template returns it unchanged.',
+                'schema'      => ['type' => 'object', 'properties' => ['uuid' => self::UUID], 'required' => ['uuid']],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true],
+            ],
             'list_earner_badges' => [
                 'operation'   => 'earnerBadges',
                 'description' => "List an earner's accepted badges by email.",
@@ -130,8 +166,10 @@ final class McpController
             // Batches (arrays) are not supported: stateless, one message per request.
             return $this->error(null, -32600, 'Invalid Request', 400);
         }
+        unset($decoded);
         /** @var array<string,mixed> $msg */
         $msg = json_decode($raw, true);
+        unset($raw);
 
         // Responses or notifications from the client: accepted, nothing to answer.
         if (!array_key_exists('id', $msg)) {
@@ -218,6 +256,8 @@ final class McpController
                 'getBadge'      => $api->getBadge($args['uuid']),
                 'revokeBadge'   => $api->revokeBadge($args['uuid'], $args),
                 'earnerBadges'  => $api->earnerBadges($args['email']),
+                'createTemplate'  => $api->createTemplate($args),
+                'archiveTemplate' => $api->archiveTemplate($args['uuid']),
             };
         } catch (\Throwable $e) {
             Logger::app('error', sprintf('MCP %s: %s en %s:%d — %s', $name, $e::class, $e->getFile(), $e->getLine(), $e->getMessage()));
@@ -254,7 +294,14 @@ final class McpController
             if (!array_key_exists($field, $args)) {
                 continue;
             }
-            $ok = $spec['type'] === 'array' ? is_array($args[$field]) && array_is_list($args[$field]) : is_string($args[$field]);
+            $value = $args[$field];
+            $ok = match ($spec['type']) {
+                'array'   => is_array($value) && array_is_list($value),
+                'object'  => is_array($value) && ($value === [] || !array_is_list($value)),
+                'boolean' => is_bool($value),
+                'integer' => is_int($value),
+                default   => is_string($value),
+            };
             if (!$ok) {
                 return "Tipo inválido para {$field}: se esperaba {$spec['type']}";
             }

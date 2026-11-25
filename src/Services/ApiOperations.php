@@ -16,6 +16,8 @@ use HexBadge\Models\User;
 /**
  * Lógica compartida por la API REST v1 y el servidor MCP: autenticación por
  * API key, rate limit, scopes, aislamiento por empresa, operaciones y presenters.
+ * MCP expone las operaciones de la API v1 más escrituras de templates propias
+ * de MCP (createTemplate, archiveTemplate) bajo templates:write.
  *
  * Cada operación devuelve un resultado neutro de transporte:
  *   ['status' => int, 'data' => mixed]  o
@@ -32,7 +34,15 @@ final class ApiOperations
         'getBadge'      => ['badges:read'],
         'revokeBadge'   => ['badges:issue'],
         'earnerBadges'  => ['badges:read'],
+        'createTemplate'  => ['templates:write'],
+        'archiveTemplate' => ['templates:write'],
     ];
+
+    /** Formatos de imagen aceptados al crear un template por API (sin SVG). */
+    public const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp'];
+
+    /** Lado máximo de la imagen original: GD la descomprime entera en memoria. */
+    public const IMAGE_MAX_EDGE = 2048;
 
     /** Máximo de earners por emisión masiva (REST y MCP). */
     public const BULK_MAX = 100;
@@ -41,7 +51,7 @@ final class ApiOperations
      * @param array<string,mixed> $apiKey     Registro de la API key autenticada.
      * @param int|null            $companyId  Empresa del dueño. NULL = superadmin global (sin filtro).
      */
-    private function __construct(private array $apiKey, private ?int $companyId)
+    private function __construct(private array $apiKey, private ?int $companyId, private Request $request)
     {
     }
 
@@ -62,8 +72,14 @@ final class ApiOperations
             return self::fail('INVALID_TOKEN', 'API key inválida o expirada', 401);
         }
 
+        // Dueño desactivado: la key deja de valer, con la misma respuesta que una
+        // key inválida (no revelar que existe).
+        $owner = User::find((int) $key['user_id']);
+        if ($owner === null || (int) $owner['is_active'] !== 1) {
+            return self::fail('INVALID_TOKEN', 'API key inválida o expirada', 401);
+        }
+
         // Empresa del dueño de la key (multitenancy): scopea todas las operaciones.
-        $owner     = User::find((int) $key['user_id']);
         $companyId = ($owner !== null && $owner['company_id'] !== null) ? (int) $owner['company_id'] : null;
 
         // Rate limit por API key.
@@ -72,7 +88,7 @@ final class ApiOperations
             return self::fail('RATE_LIMITED', 'Demasiadas solicitudes', 429);
         }
 
-        return new self($key, $companyId);
+        return new self($key, $companyId, $request);
     }
 
     /** ¿La key tiene alguno de los scopes que acepta la operación? */
@@ -289,6 +305,133 @@ final class ApiOperations
                 'issued_at' => $b['issued_at'],
             ], $badges),
         ]);
+    }
+
+    /**
+     * Crea un template SIEMPRE en borrador, de la empresa de la key, con las
+     * mismas reglas que el form del panel (BadgeTemplateService::validate) y la
+     * imagen por el mismo guardado (ImageService). Sin diploma.
+     *
+     * @param array<string,mixed> $body name, description, criteria_text, criteria_url?,
+     *        expires_days? (int), is_public? (bool), skills_tags? (string[]),
+     *        image {data: base64, mime_type}.
+     * @return array<string,mixed>
+     */
+    public function createTemplate(array $body): array
+    {
+        // Como en el panel, todo template pertenece a una empresa: una key global
+        // (dueño sin empresa) no tiene a cuál asignarlo.
+        if ($this->companyId === null) {
+            return self::fail('VALIDATION_ERROR', 'Esta API key no pertenece a una empresa: no puede crear templates', 422);
+        }
+
+        $tags = $body['skills_tags'] ?? [];
+        if (!is_array($tags) || array_filter($tags, static fn ($t): bool => !is_string($t)) !== []) {
+            return self::fail('VALIDATION_ERROR', 'skills_tags debe ser una lista de textos', 422);
+        }
+        // El panel las guarda separadas por comas: una coma partiría la etiqueta en dos.
+        foreach ($tags as $t) {
+            if (trim($t) === '' || str_contains($t, ',')) {
+                return self::fail('VALIDATION_ERROR', 'skills_tags: cada etiqueta debe tener texto y no puede contener comas', 422);
+            }
+        }
+        $expires = $body['expires_days'] ?? null;
+        if ($expires !== null && !is_int($expires)) {
+            return self::fail('VALIDATION_ERROR', 'expires_days debe ser un entero', 422);
+        }
+        $public = $body['is_public'] ?? true;
+        if (!is_bool($public)) {
+            return self::fail('VALIDATION_ERROR', 'is_public debe ser booleano', 422);
+        }
+
+        $str = static fn (string $k): string => is_string($body[$k] ?? null) ? $body[$k] : '';
+        try {
+            $data = BadgeTemplateService::validate([
+                'name'          => $str('name'),
+                'description'   => $str('description'),
+                'criteria_text' => $str('criteria_text'),
+                'criteria_url'  => $str('criteria_url'),
+                'expires_days'  => $expires === null ? '' : (string) $expires,
+                'is_public'     => $public ? '1' : '0',
+                'skills_tags'   => implode(',', $tags),
+                'state'         => 'draft',
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return self::fail('VALIDATION_ERROR', $e->getMessage(), 422);
+        }
+
+        $image = $body['image'] ?? null;
+        $b64   = is_array($image) && is_string($image['data'] ?? null) ? $image['data'] : null;
+        $mime  = is_array($image) ? ($image['mime_type'] ?? null) : null;
+        if ($b64 === null || !in_array($mime, self::IMAGE_MIMES, true)) {
+            return self::fail('VALIDATION_ERROR', 'image requiere data (base64) y mime_type (' . implode(', ', self::IMAGE_MIMES) . ')', 422);
+        }
+        // Corte previo sobre el texto: no decodificar algo que ya se sabe grande.
+        if (strlen($b64) > intdiv(ImageService::API_BADGE_MAX_BYTES, 3) * 4 + 8) {
+            return self::fail('VALIDATION_ERROR', 'Imagen demasiado grande (máx. 5MB)', 422);
+        }
+        $bytes = base64_decode($b64, true);
+        if ($bytes === false || $bytes === '') {
+            return self::fail('VALIDATION_ERROR', 'image.data no es base64 válido', 422);
+        }
+        if (strlen($bytes) > ImageService::API_BADGE_MAX_BYTES) {
+            return self::fail('VALIDATION_ERROR', 'Imagen demasiado grande (máx. 5MB)', 422);
+        }
+        // El tipo lo deciden los bytes, no el mime_type declarado; y tienen que coincidir.
+        $real = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+        $info = @getimagesizefromstring($bytes);
+        if ($real !== $mime || !is_array($info) || ($info['mime'] ?? null) !== $mime) {
+            return self::fail('VALIDATION_ERROR', 'El contenido de la imagen no es un ' . $mime . ' válido', 422);
+        }
+        if ($info[0] > self::IMAGE_MAX_EDGE || $info[1] > self::IMAGE_MAX_EDGE) {
+            return self::fail('VALIDATION_ERROR', 'Imagen demasiado grande (máx. ' . self::IMAGE_MAX_EDGE . 'px por lado)', 422);
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'hbimg');
+        if ($tmp === false) {
+            throw new \RuntimeException('No se pudo crear el archivo temporal de la imagen');
+        }
+        $images   = new ImageService();
+        $filename = null;
+        try {
+            if (file_put_contents($tmp, $bytes) !== strlen($bytes)) {
+                throw new \RuntimeException('No se pudo escribir el archivo temporal de la imagen');
+            }
+            $filename = $images->processApiBadge($tmp);
+            $uuid     = BadgeTemplateService::create($data, $this->companyId, (int) $this->apiKey['user_id'], $filename, null, (int) $this->apiKey['id'], $this->request->ip(), $this->request->userAgent());
+        } catch (\Throwable $e) {
+            // Sin template no hay quien referencie la imagen: no dejarla huérfana.
+            if ($filename !== null) {
+                $images->delete($filename);
+            }
+            if ($e instanceof \InvalidArgumentException) {
+                return self::fail('VALIDATION_ERROR', $e->getMessage(), 422);
+            }
+            throw $e;
+        } finally {
+            @unlink($tmp);
+        }
+
+        $t = BadgeTemplate::findByUuid($uuid);
+        return $t === null
+            ? self::fail('TEMPLATE_NOT_FOUND', 'Template no encontrado', 404)
+            : self::ok($this->presentTemplate($t), 201);
+    }
+
+    /**
+     * Archiva un template como el botón del panel. Uno ya archivado se devuelve
+     * tal cual, sin error (igual que el panel, que no distingue).
+     *
+     * @return array<string,mixed>
+     */
+    public function archiveTemplate(string $uuid): array
+    {
+        $t = BadgeTemplate::findByUuid($uuid);
+        if ($t === null || !$this->companyAllows($t)) {
+            return self::fail('TEMPLATE_NOT_FOUND', 'Template no encontrado', 404);
+        }
+        BadgeTemplateService::archive($t, (int) $this->apiKey['user_id'], (int) $this->apiKey['id'], $this->request->ip(), $this->request->userAgent());
+        return self::ok($this->presentTemplate((array) BadgeTemplate::findByUuid($uuid)));
     }
 
     // ---- Infra -------------------------------------------------------

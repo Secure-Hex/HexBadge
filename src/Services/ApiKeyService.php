@@ -15,7 +15,7 @@ use HexBadge\Models\ApiKey;
  */
 final class ApiKeyService
 {
-    public const SCOPES = ['badges:read', 'badges:issue', 'bulk:issue', 'templates:read'];
+    public const SCOPES = ['badges:read', 'badges:issue', 'bulk:issue', 'templates:read', 'templates:write'];
 
     /**
      * Genera una API key nueva. Devuelve el secreto en claro (mostrar 1 vez).

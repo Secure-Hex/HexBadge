@@ -423,7 +423,7 @@ class ApiKeyService {
 
 - Autenticación API: header `Authorization: Bearer <key>` solamente
 - Verificación con `hash_equals()` para prevenir timing attacks
-- Scopes granulares: `badges:read`, `badges:issue`, `bulk:issue`, `templates:read`
+- Scopes granulares: `badges:read`, `badges:issue`, `bulk:issue`, `templates:read`, `templates:write`
 
 ### 4.6 Rate Limiting
 

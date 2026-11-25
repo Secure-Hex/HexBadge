@@ -61,6 +61,29 @@ final class ImageService
         ], $this->maxBytes, true, self::MAX_EDGE_BADGE);
     }
 
+    /** Peso máximo de una insignia que llega por la API/MCP (bytes ya decodificados). */
+    public const API_BADGE_MAX_BYTES = 5 * 1024 * 1024;
+
+    /**
+     * Procesa la imagen de un badge que llegó por la API/MCP (no es un upload
+     * HTTP, así que `is_uploaded_file()` no aplica). Misma validación y mismo
+     * guardado que processUpload(): MIME real con finfo, nombre aleatorio,
+     * conversión a WebP y reducción a MAX_EDGE_BADGE. Sin SVG: el marcado lo
+     * escribe el cliente de la API. A diferencia del panel, si GD no puede
+     * convertirla (p. ej. WebP animado) se rechaza en vez de guardar el original
+     * sin reducir. El archivo de origen NO se toca: lo borra quien lo creó.
+     *
+     * @param string $path Archivo temporal propio, ya escrito en disco.
+     */
+    public function processApiBadge(string $path): string
+    {
+        return $this->persist(['error' => UPLOAD_ERR_OK, 'tmp_name' => $path, 'size' => (int) @filesize($path)], self::UPLOAD_DIR, [
+            'image/png'  => 'png',
+            'image/jpeg' => 'jpg',
+            'image/webp' => 'webp',
+        ], self::API_BADGE_MAX_BYTES, false, self::MAX_EDGE_BADGE, false, true);
+    }
+
     /**
      * Procesa una foto de perfil/portada del receptor. Solo PNG/JPG (sin SVG,
      * que no aplica a fotos), límite mayor (5MB). Va a uploads/profiles/.
@@ -128,7 +151,10 @@ final class ImageService
             @unlink($tmp);
             throw new RuntimeException('No se pudo guardar la imagen generada');
         }
-        rename($tmp, $dir . $name);
+        if (!rename($tmp, $dir . $name)) {
+            @unlink($tmp);
+            throw new RuntimeException('No se pudo guardar la imagen generada');
+        }
         @chmod($dir . $name, 0644);
 
         return $name;
@@ -160,7 +186,10 @@ final class ImageService
             @unlink($tmp);
             throw new RuntimeException('No se pudo guardar el diseño');
         }
-        rename($tmp, $dir . $name);
+        if (!rename($tmp, $dir . $name)) {
+            @unlink($tmp);
+            throw new RuntimeException('No se pudo guardar el diseño');
+        }
         @chmod($dir . $name, 0644);
         // Lo generamos nosotros, pero pasa igual por el saneado: es el mismo
         // archivo que después se sirve al público.
@@ -231,7 +260,10 @@ final class ImageService
             @unlink($tmp);
             return false;
         }
-        rename($tmp, $dir . $target);
+        if (!rename($tmp, $dir . $target)) {
+            @unlink($tmp);
+            return false;
+        }
         @chmod($dir . $target, 0644);
 
         return true;
@@ -274,13 +306,18 @@ final class ImageService
      *
      * @param array<string,mixed>  $file
      * @param array<string,string> $extByMime  MIME permitido => extensión
+     * @param bool                 $uploaded   false solo para archivos propios del servidor
+     *                                         (processApiBadge): se copian en vez de moverse.
+     * @param bool                 $requireWebp true: si GD no puede convertir/reducir la imagen,
+     *                                         se borra y se rechaza en vez de guardar el original.
      */
-    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg, int $maxEdge = 0): string
+    private function persist(array $file, string $dir, array $extByMime, int $maxBytes, bool $sanitizeSvg, int $maxEdge = 0, bool $uploaded = true, bool $requireWebp = false): string
     {
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             throw new InvalidArgumentException('Error al subir la imagen');
         }
-        if (!isset($file['tmp_name']) || !is_uploaded_file((string) $file['tmp_name'])) {
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !($uploaded ? is_uploaded_file($tmp) : is_file($tmp))) {
             throw new InvalidArgumentException('Archivo de imagen inválido');
         }
         if ((int) ($file['size'] ?? 0) > $maxBytes) {
@@ -298,16 +335,23 @@ final class ImageService
 
         $filename = bin2hex(random_bytes(16)) . '.' . $extByMime[$mime];
         $dest     = $dir . $filename;
-        if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
+        if (!($uploaded ? move_uploaded_file($tmp, $dest) : copy($tmp, $dest))) {
+            @unlink($dest); // una copia a medias no debe quedar en el docroot público
             throw new RuntimeException('Error al guardar la imagen');
         }
 
         // SVG: sanitizar tras mover (ya en disco bajo nuestro control).
-        // PNG/JPG: convertir a WebP (menor peso). Si falla, se conserva el original.
+        // PNG/JPG/WebP: (re)codificar a WebP reducido. Si falla, se conserva el
+        // original, salvo con $requireWebp: ahí se descarta y se rechaza.
         if ($sanitizeSvg && $mime === 'image/svg+xml') {
             $this->sanitizeSvg($dest);
-        } elseif ($mime === 'image/png' || $mime === 'image/jpeg') {
-            $filename = $this->toWebp($dest, $mime, $maxEdge) ?? $filename;
+        } elseif (in_array($mime, ['image/png', 'image/jpeg', 'image/webp'], true)) {
+            $webp = $this->toWebp($dest, $mime, $maxEdge);
+            if ($webp === null && $requireWebp) {
+                @unlink($dest);
+                throw new InvalidArgumentException('No se pudo procesar la imagen (¿WebP animado?). Usa una imagen estática PNG, JPEG o WebP');
+            }
+            $filename = $webp ?? $filename;
         }
 
         // 0644: imágenes públicas; en cPanel el contenido estático lo sirve otro user.
@@ -325,9 +369,11 @@ final class ImageService
         if (!function_exists('imagewebp')) {
             return null; // GD compilado sin soporte WebP.
         }
-        $img = $mime === 'image/png'
-            ? @imagecreatefrompng($srcPath)
-            : @imagecreatefromjpeg($srcPath);
+        $img = match ($mime) {
+            'image/png'  => @imagecreatefrompng($srcPath),
+            'image/webp' => @imagecreatefromwebp($srcPath),
+            default      => @imagecreatefromjpeg($srcPath),
+        };
         if (!$img instanceof \GdImage) {
             return null;
         }
@@ -342,14 +388,18 @@ final class ImageService
 
         $webpPath = preg_replace('/\.\w+$/', '.webp', $srcPath);
         $quality  = max(1, min(100, (int) config('upload.webp_quality', 82)));
-        $ok       = imagewebp($img, $webpPath, $quality);
+        // A un temporal: con un WebP de origen, $webpPath ES el original, y un
+        // fallo a mitad de escritura no debe dejarlo truncado.
+        $ok       = imagewebp($img, $webpPath . '.tmp', $quality) && rename($webpPath . '.tmp', $webpPath);
         imagedestroy($img);
 
         if (!$ok) {
-            @unlink($webpPath);
+            @unlink($webpPath . '.tmp');
             return null;
         }
-        @unlink($srcPath); // Original ya convertido.
+        if ($webpPath !== $srcPath) {
+            @unlink($srcPath); // Original ya convertido.
+        }
         return basename($webpPath);
     }
 

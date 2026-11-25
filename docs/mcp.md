@@ -1,8 +1,8 @@
 # MCP server
 
-HexBadge exposes a remote [Model Context Protocol](https://modelcontextprotocol.io) server so AI clients (Claude Code, Claude Desktop, any MCP client) can list templates and issue, look up and revoke badges.
+HexBadge exposes a remote [Model Context Protocol](https://modelcontextprotocol.io) server so AI clients (Claude Code, Claude Desktop, any MCP client) can list, create and archive templates and issue, look up and revoke badges.
 
-It is a thin layer over API v1: same API keys, same scopes, same rate limit (`RATE_LIMIT_API` per key per minute) and the same company isolation. Anything a key cannot do over REST, it cannot do over MCP either.
+It exposes the API v1 operations plus two MCP-only template writes (`create_template`, `archive_template`, under the `templates:write` scope), all over the same layer as API v1: same API keys, same scopes, same rate limit (`RATE_LIMIT_API` per key per minute) and the same company isolation. Apart from those two template writes, anything a key cannot do over REST, it cannot do over MCP either.
 
 ## Connect
 
@@ -31,10 +31,30 @@ Other clients take the same two values: the URL and the `Authorization` header.
 | `get_badge` | `badges:read` | `GET /api/v1/badges/{uuid}` | read-only |
 | `revoke_badge` | `badges:issue` | `DELETE /api/v1/badges/{uuid}` | `uuid`, `reason?`; destructive |
 | `list_earner_badges` | `badges:read` | `GET /api/v1/earners/{email}/badges` | read-only |
+| `create_template` | `templates:write` | none (MCP only) | always `draft`; see below |
+| `archive_template` | `templates:write` | none (MCP only) | `uuid`; destructive, idempotent |
 
 Parameters use the same names and validation as the REST bodies. A successful call returns the same data as the REST `data` field, as `structuredContent` and as JSON text (lists come wrapped as `{"items": [...]}`).
 
 `issue_badge` and `bulk_issue_badges` email each earner the acceptance link, the same email the admin panel sends. A mail failure never undoes the issuance. `notification_sent` (per earner in bulk) mirrors the badge's notification flag in the admin panel; when it is `false`, resend the email from there. The bulk limit is `ApiOperations::BULK_MAX` (100) earners per call.
+
+## Template writes
+
+`create_template` creates a template the same way the admin panel's form does (same field rules, same image storage, audit `template.created`), with these differences:
+
+- **Always `draft`.** There is no `state` parameter; activate it from the admin panel before issuing badges from it.
+- **No diploma/certificate** options, and no designed badge: the image is uploaded.
+- **Company:** the template belongs to the API key owner's company. A global key (owner without a company) gets a tool error: the panel also requires a company for every template.
+- **Fields:** `name` (≤200), `description` (≤5000), `criteria_text` (≤5000) are required; `criteria_url` (http/https), `expires_days` (integer 1-3650), `is_public` (boolean, default `true`) and `skills_tags` (array of strings; an empty tag or one containing a comma is a tool error) are optional.
+- **Image** (required): `{"data": "<base64>", "mime_type": "image/png" | "image/jpeg" | "image/webp"}`.
+  - `data` must be valid base64 (strict decode) and at most 5 MB decoded, 2048 px per side (`ApiOperations::IMAGE_MAX_EDGE`).
+  - The real type is read from the bytes and must match `mime_type`. SVG is not accepted.
+  - It is stored like a panel upload: random name, re-encoded to WebP and reduced to 512 px on the longest side.
+  - The whole request body may be up to 8 MiB, enough for a 5 MB image in base64. Larger bodies get HTTP 413.
+
+It returns the template like `get_template` (`id`, `state: "draft"`, ...).
+
+`archive_template` does exactly what the panel's Archive button does: sets the template to `archived` (no new badges from it; issued badges are untouched) and audits `template.archived`. Archiving an already archived template is not an error: it returns the template unchanged (and audits again, like the panel). A template of another company answers the same `Template no encontrado` as an unknown UUID.
 
 ## Errors
 

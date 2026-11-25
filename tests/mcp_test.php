@@ -9,8 +9,8 @@ declare(strict_types=1);
  *
  * Needs MySQL with the schema: docker exec -e HEXBADGE_ALLOW_DB_TEST=1 hexbadge_admin php tests/mcp_test.php
  * Only touches marked test data: users and earners @hbmcp.invalid, companies and templates named
- * "HB MCP Test ...", their badges, API keys, audit and rate-limit rows and spooled mails; all
- * deleted at the end. The test company's SMTP points at a closed local port, so no real email
+ * "HB MCP Test ...", their badges and image files, API keys, audit and rate-limit rows and
+ * spooled mails; all deleted at the end. The test company's SMTP points at a closed local port, so no real email
  * leaves: the issuance mail fails and is spooled to storage/mail (then removed).
  */
 
@@ -88,6 +88,9 @@ function cleanup(Database $db): void
     $tpls    = "SELECT id FROM badge_templates WHERE name LIKE '" . TNAME . "%'";
     $users   = "SELECT id FROM users WHERE email LIKE '%" . MARK . "'";
     $cos     = "SELECT id FROM companies WHERE name LIKE '" . TNAME . "%'";
+    foreach ($db->fetchAll("SELECT image_filename FROM badge_templates WHERE name LIKE '" . TNAME . "%'") as $row) {
+        (new \HexBadge\Services\ImageService())->delete((string) $row['image_filename']);
+    }
     $db->query("DELETE FROM issued_badges WHERE earner_id IN ({$earners}) OR badge_template_id IN ({$tpls})");
     $db->query("DELETE FROM earner_emails WHERE earner_id IN ({$earners})");
     $db->query("DELETE FROM earners WHERE email LIKE '%" . MARK . "'");
@@ -136,7 +139,8 @@ try {
     ])]);
     $tplA = $template($coA, 'A');
     $tplB = $template($coB, 'B');
-    
+    $writeA = $keys->generate($userA, 'hbmcp write A', ['templates:write'])['key'];
+    $globalWrite = $keys->generate($userId, 'hbmcp global write', ['templates:write'])['key'];
 
     // --- initialize ---------------------------------------------------------------
     $r = body(rpc($read, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => ['protocolVersion' => '2025-03-26', 'capabilities' => new stdClass(), 'clientInfo' => ['name' => 't', 'version' => '1']]]));
@@ -210,6 +214,100 @@ try {
     check('REST bulk spooled one mail per issued earner', glob(BASE_PATH . '/storage/mail/*bulk1' . MARK . '*') !== [] && glob(BASE_PATH . '/storage/mail/*bulk2' . MARK . '*') !== []);
     $tools = array_column(body(rpc($keyA, ['jsonrpc' => '2.0', 'id' => 5, 'method' => 'tools/list']))['result']['tools'], null, 'name');
     check('bulk maxItems is ApiOperations::BULK_MAX', ($tools['bulk_issue_badges']['inputSchema']['properties']['earners']['maxItems'] ?? null) === \HexBadge\Services\ApiOperations::BULK_MAX);
+
+    // --- template writes (templates:write) ---------------------------------------
+    check('tools/list for templates:write', $names($writeA) === ['create_template', 'archive_template']);
+    $tools = array_column(body(rpc($writeA, ['jsonrpc' => '2.0', 'id' => 5, 'method' => 'tools/list']))['result']['tools'], null, 'name');
+    check('archive_template is annotated destructive', ($tools['archive_template']['annotations']['destructiveHint'] ?? null) === true);
+    check('create_template has no state parameter', !isset($tools['create_template']['inputSchema']['properties']['state']));
+
+    $png = static function (int $w = 8, int $h = 8): string {
+        $img = imagecreatetruecolor($w, $h);
+        imagefill($img, 0, 0, imagecolorallocate($img, 200, 30, 30));
+        ob_start();
+        imagepng($img);
+        return (string) ob_get_clean();
+    };
+    $tplArgs = static fn (array $image, string $suffix = 'created'): array => [
+        'name' => TNAME . ' ' . $suffix, 'description' => 'Created over MCP', 'criteria_text' => 'Pass the test',
+        'expires_days' => 30, 'is_public' => false, 'skills_tags' => ['mcp', 'testing'], 'image' => $image,
+    ];
+    $tmpBefore = glob(sys_get_temp_dir() . '/hbimg*') ?: [];
+
+    $r = $call($writeA, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']));
+    $created = $r['structuredContent'] ?? [];
+    $row = isset($created['id']) ? $db->fetchOne('SELECT * FROM badge_templates WHERE uuid = ?', [$created['id']]) : null;
+    check('create_template succeeds as draft', !isset($r['isError']) && ($created['state'] ?? null) === 'draft' && ($row['state'] ?? null) === 'draft');
+    check('created template belongs to the key company with the panel field semantics', $row !== null && (int) $row['company_id'] === $coA && (int) $row['is_public'] === 0
+        && (int) $row['expires_days'] === 30 && ($created['tags'] ?? null) === ['mcp', 'testing'] && $row['certificate_template_id'] === null && $row['certificate_filename'] === null);
+    check('created image is stored as WebP on disk', $row !== null && str_ends_with((string) $row['image_filename'], '.webp') && is_file(BASE_PATH . '/apps/earner/public/uploads/badges/' . $row['image_filename']));
+    check('template creation is audited', $row !== null && (int) $db->fetchColumn("SELECT COUNT(*) FROM audit_logs WHERE action = 'template.created' AND entity_id = ?", [$row['uuid']]) === 1);
+
+    $files = static fn (): int => count(glob(BASE_PATH . '/apps/earner/public/uploads/badges/*') ?: []);
+    $before = $files();
+    $err = static fn (array $r): string => ($r['isError'] ?? false) === true ? (string) ($r['content'][0]['text'] ?? '') : '';
+    check('invalid base64 is a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => 'not*base64!', 'mime_type' => 'image/png']))) === 'image.data no es base64 válido');
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8"/></svg>';
+    check('SVG mime_type is a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($svg), 'mime_type' => 'image/svg+xml']))) !== '');
+    check('SVG bytes declared as PNG are a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($svg), 'mime_type' => 'image/png']))) !== '');
+    check('text bytes declared as PNG are a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode('hello, not an image'), 'mime_type' => 'image/png']))) !== '');
+    check('PNG bytes declared as JPEG are a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/jpeg']))) !== '');
+    check('oversize image is a tool error', $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode(str_repeat("\0", 5 * 1024 * 1024 + 1)), 'mime_type' => 'image/png']))) === 'Imagen demasiado grande (máx. 5MB)');
+    $edge = \HexBadge\Services\ApiOperations::IMAGE_MAX_EDGE;
+    check('IMAGE_MAX_EDGE is 2048', $edge === 2048);
+    check('image wider than IMAGE_MAX_EDGE is a tool error', str_contains($err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($png($edge + 1, 1)), 'mime_type' => 'image/png']))), $edge . 'px'));
+    check('tool description states IMAGE_MAX_EDGE', str_contains($tools['create_template']['description'] ?? '', $edge . 'px'));
+    // Animated WebP built by hand: a GD lossless frame wrapped in VP8X/ANIM/ANMF. GD cannot decode it.
+    $animatedWebp = (static function (): string {
+        $img = imagecreatetruecolor(8, 8);
+        ob_start();
+        imagewebp($img, null, IMG_WEBP_LOSSLESS);
+        $frame = substr((string) ob_get_clean(), 12); // the VP8L chunk
+        $chunk = static fn (string $tag, string $data): string => $tag . pack('V', strlen($data)) . $data . (strlen($data) % 2 ? "\0" : '');
+        $u24   = static fn (int $n): string => substr(pack('V', $n), 0, 3);
+        $anmf  = $chunk('ANMF', $u24(0) . $u24(0) . $u24(7) . $u24(7) . $u24(100) . "\0" . $frame);
+        $body  = 'WEBP' . $chunk('VP8X', "\x12\0\0\0" . $u24(7) . $u24(7)) . $chunk('ANIM', "\0\0\0\0\0\0") . $anmf . $anmf;
+        return 'RIFF' . pack('V', strlen($body)) . $body;
+    })();
+    $animErr = $err($call($writeA, 'create_template', $tplArgs(['data' => base64_encode($animatedWebp), 'mime_type' => 'image/webp'])));
+    check('animated WebP is a tool error', str_contains($animErr, 'No se pudo procesar la imagen'));
+    foreach (['empty' => [''], 'whitespace-only' => ['  '], 'comma' => ['a,b']] as $case => $bad) {
+        check("skills_tags with a {$case} tag is a tool error", str_contains($err($call($writeA, 'create_template', ['skills_tags' => $bad] + $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))), 'no puede contener comas'));
+    }
+    check('missing image is a tool error', $err($call($writeA, 'create_template', array_diff_key($tplArgs([]), ['image' => 1]))) === 'Falta el parámetro image');
+    check('wrongly typed is_public is a tool error', str_contains($err($call($writeA, 'create_template', ['is_public' => 'yes'] + $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))), 'is_public'));
+    check('global key cannot create (no company)', str_contains($err($call($globalWrite, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))), 'no pertenece a una empresa'));
+    check('create_template without templates:write is scope-denied', $err($call($keyA, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))) === 'Scope no autorizado');
+    check('rejected creations leave no template and no image', $files() === $before
+        && (int) $db->fetchColumn("SELECT COUNT(*) FROM badge_templates WHERE name LIKE '" . TNAME . "%'") === 3);
+    check('no image temp files are left behind', (glob(sys_get_temp_dir() . '/hbimg*') ?: []) === $tmpBefore);
+    $resp = send('POST', '/mcp', json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping', 'pad' => str_repeat('a', 8 * 1024 * 1024)]), ['Authorization' => 'Bearer ' . $writeA]);
+    check('body over 8 MiB is 413', $resp->status() === 413);
+
+    $state = static fn (string $uuid): ?string => $db->fetchColumn('SELECT state FROM badge_templates WHERE uuid = ?', [$uuid]) ?: null;
+    $r = $call($writeA, 'archive_template', ['uuid' => $tplA['uuid']]);
+    check('archive own template', !isset($r['isError']) && ($r['structuredContent']['state'] ?? null) === 'archived' && $state($tplA['uuid']) === 'archived'
+        && (int) $db->fetchColumn('SELECT is_active FROM badge_templates WHERE uuid = ?', [$tplA['uuid']]) === 0);
+    check('template archive is audited', (int) $db->fetchColumn("SELECT COUNT(*) FROM audit_logs WHERE action = 'template.archived' AND entity_id = ?", [$tplA['uuid']]) === 1);
+    $r = $call($writeA, 'archive_template', ['uuid' => $tplA['uuid']]);
+    check('archiving an archived template returns it without error', !isset($r['isError']) && ($r['structuredContent']['state'] ?? null) === 'archived');
+    $r = $call($writeA, 'archive_template', ['uuid' => $tplB['uuid']]);
+    check('company key archiving another company template is not found', $err($r) === 'Template no encontrado' && $state($tplB['uuid']) === 'active');
+    check('archive unknown template is not found', $err($call($writeA, 'archive_template', ['uuid' => uuid4()])) === 'Template no encontrado');
+    check('archive_template without templates:write is scope-denied', $err($call($keyA, 'archive_template', ['uuid' => $tplB['uuid']])) === 'Scope no autorizado' && $state($tplB['uuid']) === 'active');
+
+    // --- a deactivated owner invalidates its keys ---------------------------------
+    $invalid = body(send('GET', '/api/v1/templates', null, ['Authorization' => 'Bearer hxb_invalid']));
+    $db->query('UPDATE users SET is_active = 0 WHERE id = ?', [$userA]);
+    try {
+        $resp = send('GET', '/api/v1/badges/' . uuid4(), null, ['Authorization' => 'Bearer ' . $keyA]);
+        check('REST key of a deactivated owner is 401 like an invalid key', $resp->status() === 401 && body($resp)['error'] === $invalid['error']);
+        $resp = rpc($keyA, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping']);
+        check('MCP key of a deactivated owner is 401', $resp->status() === 401);
+    } finally {
+        $db->query('UPDATE users SET is_active = 1 WHERE id = ?', [$userA]);
+    }
+    check('the key works again once the owner is reactivated', rpc($keyA, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->status() === 200);
 
     // --- protocol errors ----------------------------------------------------------
     $r = body(rpc($read, ['jsonrpc' => '2.0', 'id' => 8, 'method' => 'resources/list']));

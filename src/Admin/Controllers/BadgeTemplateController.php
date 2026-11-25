@@ -10,10 +10,10 @@ use HexBadge\Core\Logger;
 use HexBadge\Core\Request;
 use HexBadge\Core\Response;
 use HexBadge\Core\Session;
-use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
 use HexBadge\Models\DiplomaTemplate;
 use HexBadge\Services\BadgeSvgService;
+use HexBadge\Services\BadgeTemplateService;
 use HexBadge\Services\ImageService;
 use InvalidArgumentException;
 
@@ -58,7 +58,7 @@ final class BadgeTemplateController extends Controller
         $this->verifyCsrf($request);
 
         try {
-            $data  = $this->validateInput($request, true);
+            $data  = BadgeTemplateService::validate($request->all());
 
             $companyId = $this->companyForWrite($request);
             if ($companyId === null || !$this->isCompanyAllowed($companyId)) {
@@ -67,16 +67,7 @@ final class BadgeTemplateController extends Controller
 
             $img = $this->resolveImage($request, null);
 
-            $uuid = uuid4();
-            BadgeTemplate::create(array_merge($data, [
-                'uuid'           => $uuid,
-                'created_by'     => (int) Auth::id(),
-                'company_id'     => $companyId,
-                'image_filename' => $img['filename'],
-                'design_recipe'  => $img['recipe'],
-            ]));
-
-            Logger::audit('template.created', Auth::id(), 'badge_template', $uuid, ['name' => $data['name']]);
+            $uuid = BadgeTemplateService::create($data, $companyId, (int) Auth::id(), (string) $img['filename'], $img['recipe']);
 
             // Diploma: ninguno / imagen propia / plantilla guardada (3 opciones).
             $new      = BadgeTemplate::findByUuid($uuid);
@@ -162,7 +153,7 @@ final class BadgeTemplateController extends Controller
         }
 
         try {
-            $data = $this->validateInput($request, false);
+            $data = BadgeTemplateService::validate($request->all());
 
             // La imagen es opcional al editar: solo se toca si llegó una nueva
             // subida o un diseño.
@@ -278,8 +269,7 @@ final class BadgeTemplateController extends Controller
         if ($r = $this->assertCompanyAccess(isset($template['company_id']) ? (int) $template['company_id'] : null)) {
             return $r;
         }
-        BadgeTemplate::updateById((int) $template['id'], ['state' => 'archived', 'is_active' => 0]);
-        Logger::audit('template.archived', Auth::id(), 'badge_template', $uuid, []);
+        BadgeTemplateService::archive($template, Auth::id());
         Session::flash('success', 'Template archivado.');
         return $this->redirect('/admin/templates');
     }
@@ -343,39 +333,5 @@ final class BadgeTemplateController extends Controller
         }
 
         return ['filename' => null, 'recipe' => null, 'touched' => false];
-    }
-
-    /**
-     * Valida y normaliza el formulario de template.
-     *
-     * @return array<string,mixed>
-     */
-    private function validateInput(Request $request, bool $isCreate): array
-    {
-        $v = new Validator();
-
-        $name        = $v->name((string) $request->input('name', ''), 200);
-        $description = $v->text((string) $request->input('description', ''), 5000);
-        $criteria    = $v->text((string) $request->input('criteria_text', ''), 5000);
-        $criteriaUrl = $v->url((string) $request->input('criteria_url', ''), false);
-        $expiresDays = $v->int((string) $request->input('expires_days', ''), 1, 3650, false);
-        $isPublic    = $request->input('is_public', '1') === '1' ? 1 : 0;
-        $state       = $v->inList((string) $request->input('state', 'draft'), ['draft', 'active', 'archived'], 'estado');
-
-        // Tags: CSV -> array -> JSON.
-        $tagsCsv = (string) $request->input('skills_tags', '');
-        $tags    = array_values(array_filter(array_map('trim', explode(',', $tagsCsv)), static fn (string $t): bool => $t !== ''));
-
-        // Los datos del emisor (issuer_*) ya NO se editan acá: viven en la Empresa.
-        return [
-            'name'          => $name,
-            'description'   => $description,
-            'criteria_text' => $criteria,
-            'criteria_url'  => $criteriaUrl,
-            'skills_tags'   => $tags === [] ? null : json_encode($tags, JSON_UNESCAPED_UNICODE),
-            'expires_days'  => $expiresDays,
-            'is_public'     => $isPublic,
-            'state'         => $state,
-        ];
     }
 }
