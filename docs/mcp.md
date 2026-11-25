@@ -44,7 +44,7 @@ Parameters use the same names and validation as the REST bodies. A successful ca
 
 - **Always `draft`.** There is no `state` parameter; activate it from the admin panel before issuing badges from it.
 - **No diploma/certificate** options, and no designed badge: the image is uploaded.
-- **Company:** the template belongs to the API key owner's company. A global key (owner without a company) gets a tool error: the panel also requires a company for every template.
+- **Company:** `company_id` (company UUID) picks the owning company; every template needs one, as in the panel. A global key (owner without a company) must send it; an unknown UUID is a tool error (`Empresa no encontrada`). A company key may omit it (its own company is used); naming any other company answers the same `Empresa no encontrada`. The UUID to use is the `company.id` shown by `list_templates`/`get_template`.
 - **Fields:** `name` (≤200), `description` (≤5000), `criteria_text` (≤5000) are required; `criteria_url` (http/https), `expires_days` (integer 1-3650), `is_public` (boolean, default `true`) and `skills_tags` (array of strings; an empty tag or one containing a comma is a tool error) are optional.
 - **Image** (required): `{"data": "<base64>", "mime_type": "image/png" | "image/jpeg" | "image/webp"}`.
   - `data` must be valid base64 (strict decode) and at most 5 MB decoded, 2048 px per side (`ApiOperations::IMAGE_MAX_EDGE`).
@@ -52,7 +52,9 @@ Parameters use the same names and validation as the REST bodies. A successful ca
   - It is stored like a panel upload: random name, re-encoded to WebP and reduced to 512 px on the longest side.
   - The whole request body may be up to 8 MiB, enough for a 5 MB image in base64. Larger bodies get HTTP 413.
 
-It returns the template like `get_template` (`id`, `state: "draft"`, ...).
+It returns the template like `get_template` (`id`, `state: "draft"`, `company`, ...).
+
+Every template payload (MCP and REST v1 `GET /api/v1/templates[/{uuid}]`) includes `company: {"id": "<uuid>", "name": "..."}`, or `null` for a template without a company. This field is additive.
 
 `archive_template` does exactly what the panel's Archive button does: sets the template to `archived` (no new badges from it; issued badges are untouched) and audits `template.archived`. Archiving an already archived template is not an error: it returns the template unchanged (and audits again, like the panel). A template of another company answers the same `Template no encontrado` as an unknown UUID.
 

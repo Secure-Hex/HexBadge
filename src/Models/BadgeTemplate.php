@@ -19,7 +19,8 @@ final class BadgeTemplate extends Model
         COALESCE(c.issuer_url, bt.issuer_url)                 AS issuer_url,
         COALESCE(c.issuer_email, bt.issuer_email)             AS issuer_email,
         COALESCE(c.linkedin_org_id, bt.linkedin_org_id)       AS linkedin_org_id,
-        c.name AS company_name";
+        c.name AS company_name,
+        c.uuid AS company_uuid";
 
     /**
      * Templates emitibles (estado activo). Si $companyId es null no filtra

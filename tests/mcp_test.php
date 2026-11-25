@@ -276,11 +276,31 @@ try {
     }
     check('missing image is a tool error', $err($call($writeA, 'create_template', array_diff_key($tplArgs([]), ['image' => 1]))) === 'Falta el parámetro image');
     check('wrongly typed is_public is a tool error', str_contains($err($call($writeA, 'create_template', ['is_public' => 'yes'] + $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))), 'is_public'));
-    check('global key cannot create (no company)', str_contains($err($call($globalWrite, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))), 'no pertenece a una empresa'));
     check('create_template without templates:write is scope-denied', $err($call($keyA, 'create_template', $tplArgs(['data' => base64_encode($png()), 'mime_type' => 'image/png']))) === 'Scope no autorizado');
     check('rejected creations leave no template and no image', $files() === $before
         && (int) $db->fetchColumn("SELECT COUNT(*) FROM badge_templates WHERE name LIKE '" . TNAME . "%'") === 3);
     check('no image temp files are left behind', (glob(sys_get_temp_dir() . '/hbimg*') ?: []) === $tmpBefore);
+
+    // --- create_template company_id (global keys pick the company) ---------------
+    $uuidA   = (string) $db->fetchColumn('SELECT uuid FROM companies WHERE id = ?', [$coA]);
+    $uuidB   = (string) $db->fetchColumn('SELECT uuid FROM companies WHERE id = ?', [$coB]);
+    $img     = ['data' => base64_encode($png()), 'mime_type' => 'image/png'];
+    $coOf    = static fn (array $r): ?int => isset($r['structuredContent']['id']) ? (int) $db->fetchColumn('SELECT company_id FROM badge_templates WHERE uuid = ?', [$r['structuredContent']['id']]) : null;
+    $r = $call($globalWrite, 'create_template', ['company_id' => strtoupper($uuidB)] + $tplArgs($img, 'global B'));
+    check('global key with company_id creates in that company', !isset($r['isError']) && $coOf($r) === $coB
+        && ($r['structuredContent']['company'] ?? null) === ['id' => $uuidB, 'name' => TNAME . ' B']);
+    check('template.created audit carries the resolved company_id', isset($r['structuredContent']['id'])
+        && (int) json_decode((string) $db->fetchColumn("SELECT metadata FROM audit_logs WHERE action = 'template.created' AND entity_id = ?", [$r['structuredContent']['id']]), true)['company_id'] === $coB);
+    check('global key without company_id is a tool error', str_contains($err($call($globalWrite, 'create_template', $tplArgs($img, 'global none'))), 'indica company_id'));
+    check('global key with unknown company_id is not found', $err($call($globalWrite, 'create_template', ['company_id' => uuid4()] + $tplArgs($img, 'global unknown'))) === 'Empresa no encontrada');
+    check('company key naming another company is not found', $err($call($writeA, 'create_template', ['company_id' => $uuidB] + $tplArgs($img, 'A as B'))) === 'Empresa no encontrada');
+    $r = $call($writeA, 'create_template', ['company_id' => $uuidA] + $tplArgs($img, 'A explicit'));
+    check('company key naming its own company creates there', !isset($r['isError']) && $coOf($r) === $coA);
+    check('created template defaulted to the key company exposes it', ($created['company'] ?? null) === ['id' => $uuidA, 'name' => TNAME . ' A']);
+    check('get_template shows the owning company', ($call($keyA, 'get_template', ['uuid' => $tplA['uuid']])['structuredContent']['company'] ?? null) === ['id' => $uuidA, 'name' => TNAME . ' A']);
+    $listed = body(send('GET', '/api/v1/templates', null, ['Authorization' => 'Bearer ' . $keyA]))['data'] ?? [];
+    check('REST list_templates shows the owning company', $listed !== [] && array_filter($listed, static fn (array $t): bool => ($t['company']['id'] ?? null) !== $uuidA) === []);
+    check('create_template schema has company_id as uuid', ($tools['create_template']['inputSchema']['properties']['company_id']['format'] ?? null) === 'uuid');
     $resp = send('POST', '/mcp', json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping', 'pad' => str_repeat('a', 8 * 1024 * 1024)]), ['Authorization' => 'Bearer ' . $writeA]);
     check('body over 8 MiB is 413', $resp->status() === 413);
 

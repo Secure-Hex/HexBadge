@@ -9,6 +9,7 @@ use HexBadge\Core\RateLimiter;
 use HexBadge\Core\Request;
 use HexBadge\Core\Validator;
 use HexBadge\Models\BadgeTemplate;
+use HexBadge\Models\Company;
 use HexBadge\Models\Earner;
 use HexBadge\Models\IssuedBadge;
 use HexBadge\Models\User;
@@ -308,21 +309,30 @@ final class ApiOperations
     }
 
     /**
-     * Crea un template SIEMPRE en borrador, de la empresa de la key, con las
-     * mismas reglas que el form del panel (BadgeTemplateService::validate) y la
-     * imagen por el mismo guardado (ImageService). Sin diploma.
+     * Crea un template SIEMPRE en borrador, con las mismas reglas que el form del
+     * panel (BadgeTemplateService::validate) y la imagen por el mismo guardado
+     * (ImageService). Sin diploma. Empresa: company_id (UUID) obligatorio para una
+     * key global; una key de empresa solo puede usar la suya (por defecto).
      *
      * @param array<string,mixed> $body name, description, criteria_text, criteria_url?,
      *        expires_days? (int), is_public? (bool), skills_tags? (string[]),
-     *        image {data: base64, mime_type}.
+     *        company_id? (UUID), image {data: base64, mime_type}.
      * @return array<string,mixed>
      */
     public function createTemplate(array $body): array
     {
-        // Como en el panel, todo template pertenece a una empresa: una key global
-        // (dueño sin empresa) no tiene a cuál asignarlo.
-        if ($this->companyId === null) {
-            return self::fail('VALIDATION_ERROR', 'Esta API key no pertenece a una empresa: no puede crear templates', 422);
+        // Como en el panel, todo template pertenece a una empresa. company_id (uuid)
+        // la elige: obligatoria para una key global, opcional para una de empresa,
+        // que solo puede nombrar la suya (cualquier otra responde como inexistente).
+        $companyId = $this->companyId;
+        if (($body['company_id'] ?? null) !== null) {
+            $company = is_string($body['company_id']) ? Company::findByUuid(strtolower($body['company_id'])) : null;
+            if ($company === null || !$this->companyAllows(['company_id' => $company['id']])) {
+                return self::fail('COMPANY_NOT_FOUND', 'Empresa no encontrada', 404);
+            }
+            $companyId = (int) $company['id'];
+        } elseif ($companyId === null) {
+            return self::fail('VALIDATION_ERROR', 'Esta API key no pertenece a una empresa: indica company_id', 422);
         }
 
         $tags = $body['skills_tags'] ?? [];
@@ -398,7 +408,7 @@ final class ApiOperations
                 throw new \RuntimeException('No se pudo escribir el archivo temporal de la imagen');
             }
             $filename = $images->processApiBadge($tmp);
-            $uuid     = BadgeTemplateService::create($data, $this->companyId, (int) $this->apiKey['user_id'], $filename, null, (int) $this->apiKey['id'], $this->request->ip(), $this->request->userAgent());
+            $uuid     = BadgeTemplateService::create($data, $companyId,(int) $this->apiKey['user_id'], $filename, null, (int) $this->apiKey['id'], $this->request->ip(), $this->request->userAgent());
         } catch (\Throwable $e) {
             // Sin template no hay quien referencie la imagen: no dejarla huérfana.
             if ($filename !== null) {
@@ -472,6 +482,8 @@ final class ApiOperations
             'image'       => badge_image_url((string) $t['image_filename']),
             'tags'        => BadgeTemplate::decodeTags($t['skills_tags'] ?? null),
             'state'       => $t['state'],
+            // Viene del JOIN de BadgeTemplate (sin consulta extra). NULL = template sin empresa.
+            'company'     => ($t['company_uuid'] ?? null) === null ? null : ['id' => $t['company_uuid'], 'name' => $t['company_name']],
         ];
     }
 
