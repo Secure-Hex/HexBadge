@@ -20,6 +20,8 @@ final class Request
     private array $files;
     /** @var array<string,mixed> */
     private array $server;
+    /** Cuerpo crudo inyectado (tests); null = leer php://input. */
+    private ?string $body;
 
     /**
      * @param array<string,mixed> $get
@@ -27,8 +29,9 @@ final class Request
      * @param array<string,mixed> $files
      * @param array<string,mixed> $server
      */
-    public function __construct(array $get, array $post, array $files, array $server)
+    public function __construct(array $get, array $post, array $files, array $server, ?string $body = null)
     {
+        $this->body   = $body;
         $this->get    = $get;
         $this->post   = $post;
         $this->files  = $files;
@@ -108,12 +111,21 @@ final class Request
      */
     public function json(): ?array
     {
-        $raw = file_get_contents('php://input');
-        if ($raw === false || $raw === '') {
+        $raw = $this->body();
+        if ($raw === '') {
             return null;
         }
         $data = json_decode($raw, true);
         return is_array($data) ? $data : null;
+    }
+
+    /**
+     * Cuerpo crudo de la petición, opcionalmente truncado a $maxBytes.
+     */
+    public function body(?int $maxBytes = null): string
+    {
+        $raw = $this->body ?? file_get_contents('php://input', false, null, 0, $maxBytes);
+        return is_string($raw) ? $raw : '';
     }
 
     public function header(string $name): ?string

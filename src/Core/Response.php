@@ -31,9 +31,10 @@ final class Response
     }
 
     /**
-     * @param array<string,mixed> $data
+     * @param array<string,mixed>  $data
+     * @param array<string,string> $headers Headers extra (ej. WWW-Authenticate).
      */
-    public static function json(array $data, int $status = 200): self
+    public static function json(array $data, int $status = 200, array $headers = []): self
     {
         $body = json_encode(
             $data,
@@ -42,7 +43,7 @@ final class Response
 
         return new self($body === false ? '{}' : $body, $status, [
             'Content-Type' => 'application/json; charset=UTF-8',
-        ]);
+        ] + $headers);
     }
 
     public static function redirect(string $location, int $status = 302): self

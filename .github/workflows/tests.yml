@@ -42,3 +42,4 @@ jobs:
 
       - run: php tests/oidc_test.php
       - run: php tests/auth_db_test.php
+      - run: php tests/mcp_test.php

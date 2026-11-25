@@ -32,6 +32,7 @@ use HexBadge\Admin\Controllers\DiplomaTemplateController;
 use HexBadge\Admin\Controllers\CompanyController;
 use HexBadge\Admin\Controllers\FontController;
 use HexBadge\Admin\Controllers\ApiController;
+use HexBadge\Admin\Controllers\McpController;
 use HexBadge\Admin\Controllers\InstallController;
 use HexBadge\Core\Auth;
 
@@ -172,3 +173,8 @@ $router->post('/api/v1/badges/bulk-issue', [ApiController::class, 'bulkIssue']);
 $router->get('/api/v1/badges/{uuid}', [ApiController::class, 'getBadge']);
 $router->delete('/api/v1/badges/{uuid}', [ApiController::class, 'revokeBadge']);
 $router->get('/api/v1/earners/{email}/badges', [ApiController::class, 'earnerBadges']);
+
+// --- Servidor MCP (misma lógica, keys y scopes que la API v1; docs/mcp.md) ---
+$router->post('/mcp', [McpController::class, 'handle']);
+$router->get('/mcp', [McpController::class, 'methodNotAllowed']);
+$router->delete('/mcp', [McpController::class, 'methodNotAllowed']);

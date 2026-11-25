@@ -1,0 +1,54 @@
+# MCP server
+
+HexBadge exposes a remote [Model Context Protocol](https://modelcontextprotocol.io) server so AI clients (Claude Code, Claude Desktop, any MCP client) can list templates and issue, look up and revoke badges.
+
+It is a thin layer over API v1: same API keys, same scopes, same rate limit (`RATE_LIMIT_API` per key per minute) and the same company isolation. Anything a key cannot do over REST, it cannot do over MCP either.
+
+## Connect
+
+- **URL:** `https://<host>/mcp` (the admin host, the same one that serves `/api/v1`)
+- **Transport:** Streamable HTTP, stateless, JSON responses only (no SSE, no sessions). Only `POST` is accepted; `GET` and `DELETE` answer 405.
+- **Auth:** `Authorization: Bearer <api_key>` on every request. Create the key in the admin panel (API Keys) with the scopes you need. A missing or invalid key gets HTTP 401.
+
+Claude Code:
+
+```bash
+claude mcp add --transport http hexbadge https://<host>/mcp --header "Authorization: Bearer <key>"
+```
+
+Other clients take the same two values: the URL and the `Authorization` header.
+
+## Scopes and tools
+
+`tools/list` only shows the tools the key's scopes allow. Calling a tool without the scope returns a tool error.
+
+| Tool | Scope (any of) | REST equivalent | Notes |
+|---|---|---|---|
+| `list_templates` | `templates:read`, `badges:read` | `GET /api/v1/templates` | read-only |
+| `get_template` | `templates:read`, `badges:read` | `GET /api/v1/templates/{uuid}` | read-only |
+| `issue_badge` | `badges:issue` | `POST /api/v1/badges/issue` | `template_id`, `email`, `first_name`, `last_name`, `locale?` (`es`/`en`) |
+| `bulk_issue_badges` | `bulk:issue` | `POST /api/v1/badges/bulk-issue` | `template_id`, `earners[]` (max 100) |
+| `get_badge` | `badges:read` | `GET /api/v1/badges/{uuid}` | read-only |
+| `revoke_badge` | `badges:issue` | `DELETE /api/v1/badges/{uuid}` | `uuid`, `reason?`; destructive |
+| `list_earner_badges` | `badges:read` | `GET /api/v1/earners/{email}/badges` | read-only |
+
+Parameters use the same names and validation as the REST bodies. A successful call returns the same data as the REST `data` field, as `structuredContent` and as JSON text (lists come wrapped as `{"items": [...]}`).
+
+`issue_badge` and `bulk_issue_badges` email each earner the acceptance link, the same email the admin panel sends. A mail failure never undoes the issuance. `notification_sent` (per earner in bulk) mirrors the badge's notification flag in the admin panel; when it is `false`, resend the email from there. The bulk limit is `ApiOperations::BULK_MAX` (100) earners per call.
+
+## Errors
+
+Failed tool calls come back as a tool result with `isError: true` and a text message, never with the REST error `code`:
+
+- **Business errors** (not found, validation, duplicate): the same message as the REST `error.message`.
+- **Missing scope:** `Scope no autorizado` (REST answers 403 `INSUFFICIENT_SCOPE` with the same text).
+- **Wrong or missing arguments:** an MCP-only message such as `Falta el parámetro email` or `Tipo inválido para uuid: se esperaba string`, checked against the tool's `inputSchema` before the operation runs.
+- **Unexpected failure:** a generic `Error interno al ejecutar la herramienta`; the detail goes to the server log only.
+
+Protocol problems are JSON-RPC errors instead: an unknown tool or a non-string `name` is `-32602`, an unknown method `-32601`, invalid JSON `-32700`.
+
+**Rate limit:** past `RATE_LIMIT_API` requests per key per minute the server answers HTTP 429 with a JSON-RPC error (`-32000`, `Demasiadas solicitudes`, `id: null`). Every MCP message counts, including `initialize`, `tools/list` and `ping`, and the budget is shared with REST calls made with the same key. Back off and retry after the minute window.
+
+## Browser origins
+
+Requests that carry an `Origin` header are rejected with 403 unless the origin is allowed (DNS-rebinding protection). By default only `APP_URL` is allowed; set `MCP_ALLOWED_ORIGINS` (comma-separated) in `.env` to allow others. CLI and server clients send no `Origin` and are unaffected.
