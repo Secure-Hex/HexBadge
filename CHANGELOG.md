@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0] - 2026-11-25
+### Nuevas funcionalidades
+- add remote MCP endpoint over API v1 (8cf1aae)
+### Correcciones
+- extract ApiOperations; send issuance email, isolate earners by company, survive bulk failures (45850c8)
+### Otros
+- pasar los secretos de producción al deploy llamado desde el release (afb05b3)
+
 ## [1.5.0] - 2026-11-12
 ### Nuevas funcionalidades
 - inicio de sesión del panel admin con Hermes (OIDC) (a696fbe)
