@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.8.1] - 2026-11-25
+### Correcciones
+- fall back to PNG/JPEG when GD lacks WebP support (7dea124)
+
 ## [1.8.0] - 2026-11-25
 ### Nuevas funcionalidades
 - let global keys choose the company in create_template (6e27ff0)
