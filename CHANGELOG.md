@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.0] - 2026-11-25
+### Nuevas funcionalidades
+- add create_template and archive_template tools (c9a2f5c)
+
 ## [1.6.0] - 2026-11-25
 ### Nuevas funcionalidades
 - add remote MCP endpoint over API v1 (8cf1aae)
