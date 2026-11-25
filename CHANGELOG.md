@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.8.0] - 2026-11-25
+### Nuevas funcionalidades
+- let global keys choose the company in create_template (6e27ff0)
+
 ## [1.7.0] - 2026-11-25
 ### Nuevas funcionalidades
 - add create_template and archive_template tools (c9a2f5c)
